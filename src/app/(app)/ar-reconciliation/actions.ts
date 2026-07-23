@@ -16,7 +16,7 @@ import { generateExceptionInsights } from "@/modules/ar-reconciliation/ai-enrich
 
 export type FormState = { error?: string };
 
-const OK_EXT = /\.(xlsx|xls|csv)$/i;
+const OK_EXT = /\.(xlsx|xls|csv|pdf)$/i;
 const MAX_BYTES = 15 * 1024 * 1024;
 
 async function readFile(f: FormDataEntryValue | null): Promise<{ name: string; buf: Buffer } | null> {
@@ -48,7 +48,7 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
   const customer = await readFile(fd.get("customer"));
   if (!statement || !customer) return { error: "Upload both the Statement of Account and the Customer Ledger." };
   for (const f of [statement, customer]) {
-    if (!OK_EXT.test(f.name)) return { error: "Files must be .xlsx, .xls or .csv." };
+    if (!OK_EXT.test(f.name)) return { error: "Files must be .xlsx, .xls, .csv or .pdf." };
     if (f.buf.length > MAX_BYTES) return { error: "Each file must be under 15 MB." };
   }
 

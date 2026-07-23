@@ -5,8 +5,8 @@ import { autoDetectMapping, applyMapping, mappingGaps, type ColumnMapping } from
 import { reconcile } from "./engine/engine";
 import { resolveMapping } from "./mapping-resolver";
 import { generateExceptionInsights, rescueMatches } from "./ai-enrich";
+import { extractGrid } from "./ingest";
 import { readUpload } from "../../lib/storage";
-import { parseWorkbook } from "../../lib/xlsx";
 
 function toDate(s: string | null): string | null {
   if (!s) return null;
@@ -129,13 +129,13 @@ export async function processRun(runId: string) {
   if (!run.statementFileId || !run.customerFileId) throw new Error("Uploaded files are missing.");
 
   await setStage(runId, "Reading files");
-  const fileRows = await db.select({ id: files.id, storageKey: files.storageKey }).from(files).where(inArray(files.id, [run.statementFileId, run.customerFileId]));
-  const sKey = fileRows.find((f) => f.id === run.statementFileId)?.storageKey;
-  const cKey = fileRows.find((f) => f.id === run.customerFileId)?.storageKey;
-  if (!sKey || !cKey) throw new Error("Uploaded files are no longer available.");
+  const fileRows = await db.select({ id: files.id, storageKey: files.storageKey, name: files.originalName }).from(files).where(inArray(files.id, [run.statementFileId, run.customerFileId]));
+  const sf = fileRows.find((f) => f.id === run.statementFileId);
+  const cf = fileRows.find((f) => f.id === run.customerFileId);
+  if (!sf?.storageKey || !cf?.storageKey) throw new Error("Uploaded files are no longer available.");
 
-  const statementRows = parseWorkbook(await readUpload(sKey));
-  const customerRows = parseWorkbook(await readUpload(cKey));
+  const statementRows = (await extractGrid(await readUpload(sf.storageKey), sf.name)).grid;
+  const customerRows = (await extractGrid(await readUpload(cf.storageKey), cf.name)).grid;
 
   await setStage(runId, "Resolving columns");
   const s = await resolveMapping(run.tenantId, statementRows, "statement");

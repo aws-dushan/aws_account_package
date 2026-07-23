@@ -5,10 +5,19 @@
 **Depends on:** Phase 2 (canonical schema) + Phase 1 (AI vision config).
 
 ## Scope
-- [ ] PDF text-layer extraction (pdf-parse / pdfjs) + confidence check
-- [ ] **LLM-vision tier:** render pages to images → configurable vision model extracts the table
-- [ ] **Tesseract** self-hosted container as the offline last resort
-- [ ] File-type sniffing, structure validation, clear error surfacing
+- [x] PDF text-layer extraction (**pdfjs-dist**) with position-based row/column reconstruction
+      + a tabular confidence check (`isTabular` = mapping has no gaps). `src/lib/pdf.ts`
+- [x] **LLM-vision tier:** the configured **vision** model reads the PDF **natively**
+      (Anthropic/Google accept PDFs directly — no image rendering) and returns the table grid.
+      `aiExtractPdfTable` in `src/lib/ai.ts`
+- [~] **Tesseract** — the offline last resort requires the self-hosted OCR service (Phase 6
+      infra); the tier is present in `extractGrid` but not invoked in-process yet.
+- [x] File-type sniffing (extension + `%PDF-` magic), tiered `extractGrid`, clear error surfacing.
+- [x] **Learning applies to PDFs too** — the extracted grid flows through the same
+      `resolveMapping` (fingerprint → learned → auto → AI → store), identical to spreadsheets.
+
+> Verified: native PDF extraction works on a real PDF (`npm run pdf:check`). Vision tier is
+> code-complete but not live-tested (no vision key configured in dev).
 
 ## Tiering
 ```

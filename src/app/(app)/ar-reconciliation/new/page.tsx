@@ -22,7 +22,7 @@ export default async function NewRunPage() {
         <div>
           <div className={styles.eyebrow}>AR Reconciliation</div>
           <h1>New reconciliation</h1>
-          <p>Upload the two ledgers as Excel or CSV. Columns are detected automatically (AI-assisted for unusual formats).</p>
+          <p>Upload the two ledgers as Excel, CSV or PDF. Columns are detected and learned automatically (AI-assisted for unusual formats and scanned PDFs).</p>
         </div>
       </div>
       <div className={styles.card}>

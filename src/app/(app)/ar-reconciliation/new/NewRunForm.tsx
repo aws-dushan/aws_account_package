@@ -45,11 +45,11 @@ export default function NewRunForm({
       <div className={styles.formRow}>
         <div className={styles.field}>
           <label className={styles.label}>Statement of Account</label>
-          <input name="statement" type="file" accept=".xlsx,.xls,.csv" className={styles.input} style={{ paddingTop: 12 }} required />
+          <input name="statement" type="file" accept=".xlsx,.xls,.csv,.pdf" className={styles.input} style={{ paddingTop: 12 }} required />
         </div>
         <div className={styles.field}>
           <label className={styles.label}>Customer Ledger</label>
-          <input name="customer" type="file" accept=".xlsx,.xls,.csv" className={styles.input} style={{ paddingTop: 12 }} required />
+          <input name="customer" type="file" accept=".xlsx,.xls,.csv,.pdf" className={styles.input} style={{ paddingTop: 12 }} required />
         </div>
       </div>
 
