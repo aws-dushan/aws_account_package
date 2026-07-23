@@ -45,7 +45,8 @@ dotnet run --project AwsAccounting.Api
 # migrations + seed run automatically on startup
 # dev URL: http://localhost:5247  (see Properties/launchSettings.json)
 ```
-Seeded platform super-admin: **`Dev_Admin` / `Admin@12345`** (company: *AWS Distribution*).
+A platform super-admin is seeded on first run; its credentials are set via configuration/
+environment, not committed here. Change the password on first login.
 
 Health check: `GET /health`. Dev-only engine self-check: `GET /api/dev/selfcheck`
 (asserts the deterministic engine + mapping reproduce the golden fixture: 4 exact, 1 fuzzy,

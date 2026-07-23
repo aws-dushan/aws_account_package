@@ -74,6 +74,59 @@ public class ExceptionsController(AppDbContext db, CurrentUser me, PermissionSer
         return Ok(new { ex.Id, ex.Status });
     }
 
+    public record AiMatchReq(bool Accept);
+
+    /// <summary>
+    /// Confirm or reject an AI-suggested match. Accept → the match becomes user_confirmed and both
+    /// exceptions resolve; reject → the suggested match is removed and the exceptions reopen.
+    /// </summary>
+    [HttpPost("exceptions/{id:guid}/ai-match")]
+    public async Task<IActionResult> ConfirmAiMatch(Guid id, [FromBody] AiMatchReq req, CancellationToken ct)
+    {
+        if (!await perms.CanAsync("ar-reconciliation.exception.approve", ct)) return Deny("ar-reconciliation.exception.approve");
+
+        var ex = await db.Exceptions.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
+        if (ex is null) return NotFound();
+        if (!await RunInScope(ex.RunId, ct)) return NotFound();
+        if (ex.LedgerLineId is not Guid lineId) return BadRequest(new { error = "No linked line." });
+
+        var matchId = await db.LedgerLines.Where(l => l.Id == lineId).Select(l => l.MatchId).FirstOrDefaultAsync(ct);
+        if (matchId is not Guid mid) return BadRequest(new { error = "No suggested match to confirm." });
+
+        var lineIds = await db.MatchLines.Where(x => x.MatchId == mid).Select(x => x.LedgerLineId).ToListAsync(ct);
+        var exIds = await db.Exceptions.Where(e => e.LedgerLineId != null && lineIds.Contains(e.LedgerLineId.Value)).Select(e => e.Id).ToListAsync(ct);
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            if (req.Accept)
+            {
+                await db.Matches.Where(m => m.Id == mid)
+                    .ExecuteUpdateAsync(s => s.SetProperty(m => m.Status, "user_confirmed"), ct);
+                await db.Exceptions.Where(e => exIds.Contains(e.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, "resolved").SetProperty(e => e.ResolvedBy, me.Id), ct);
+            }
+            else
+            {
+                await db.LedgerLines.Where(l => lineIds.Contains(l.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(l => l.MatchId, (Guid?)null), ct);
+                await db.MatchLines.Where(x => x.MatchId == mid).ExecuteDeleteAsync(ct);
+                await db.Matches.Where(m => m.Id == mid).ExecuteDeleteAsync(ct);
+                await db.Exceptions.Where(e => exIds.Contains(e.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(e => e.Status, "open")
+                        .SetProperty(e => e.AiExplanation, (string?)null)
+                        .SetProperty(e => e.AiRecommendation, (string?)null), ct);
+            }
+            await tx.CommitAsync(ct);
+        });
+
+        await audit.WriteAsync(req.Accept ? "reconciliation.ai_match.confirm" : "reconciliation.ai_match.reject",
+            "reconciliation_exception", id.ToString(), ex.TenantId);
+        return Ok(new { ok = true, accepted = req.Accept });
+    }
+
     /// <summary>True if the run exists and the caller's tenant may see it.</summary>
     private async Task<bool> RunInScope(Guid runId, CancellationToken ct)
     {

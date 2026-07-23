@@ -141,6 +141,29 @@ public class RunsController(
         return File(bytes, "application/pdf", Filename(run.Name, "pdf"));
     }
 
+    // ---- on-demand AI commentary ---------------------------------------------
+    [HttpPost("{id:guid}/ai-insights")]
+    public async Task<IActionResult> AiInsights(Guid id, [FromServices] AwsAccounting.Api.Reconciliation.IAiEnricher ai, CancellationToken ct)
+    {
+        if (!await perms.CanAsync("ar-reconciliation.view", ct)) return Deny("ar-reconciliation.view");
+        var run = await LoadScoped(id, ct);
+        if (run is null) return NotFound();
+        try
+        {
+            await ai.GenerateExceptionInsightsAsync(id, ct);
+        }
+        catch (AiNotConfiguredException)
+        {
+            return BadRequest(new { error = "Configure a reasoning model in Admin → AI Settings first." });
+        }
+        catch
+        {
+            return BadRequest(new { error = "AI insight generation failed. Check the AI provider configuration." });
+        }
+        await audit.WriteAsync("run.ai_insights", "reconciliation_run", id.ToString(), run.TenantId);
+        return Ok(new { ok = true });
+    }
+
     // ---- delete ---------------------------------------------------------------
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
