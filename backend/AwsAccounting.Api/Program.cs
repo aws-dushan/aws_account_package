@@ -52,6 +52,19 @@ builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AwsAccounting.Api.Auth.CurrentUser>();
 builder.Services.AddScoped<AwsAccounting.Api.Services.AuditService>();
 builder.Services.AddSingleton<AwsAccounting.Api.Services.CryptoService>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.MappingResolver>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IAiMappingIdentifier, AwsAccounting.Api.Reconciliation.NullAiMappingIdentifier>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IPdfGridExtractor, AwsAccounting.Api.Reconciliation.NullPdfGridExtractor>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.GridExtractor>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IAiEnricher, AwsAccounting.Api.Reconciliation.NullAiEnricher>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.RunProcessor>();
+builder.Services.AddScoped<AwsAccounting.Api.Services.FileStorage>();
+builder.Services.AddScoped<AwsAccounting.Api.Services.PermissionService>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.ReportExporter>();
+builder.Services.AddSingleton<AwsAccounting.Api.Services.RunQueue>();
+builder.Services.AddHostedService<AwsAccounting.Api.Workers.RunWorker>();
+
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
