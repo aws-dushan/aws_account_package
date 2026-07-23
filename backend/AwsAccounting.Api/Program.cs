@@ -40,8 +40,18 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("SuperAdmin", p => p.RequireClaim("isSuperAdmin", "true"));
+    o.AddPolicy("Admin", p => p.RequireClaim("isAdmin", "true"));
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<AwsAccounting.Api.Auth.CurrentUser>();
+builder.Services.AddScoped<AwsAccounting.Api.Services.AuditService>();
+builder.Services.AddSingleton<AwsAccounting.Api.Services.CryptoService>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
