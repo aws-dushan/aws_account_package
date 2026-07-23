@@ -40,14 +40,40 @@ public sealed class GridExtractor(IPdfGridExtractor pdf)
         => filename.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
            || (buf.Length >= 5 && buf[0] == '%' && buf[1] == 'P' && buf[2] == 'D' && buf[3] == 'F' && buf[4] == '-');
 
-    /// <summary>Reads the first worksheet into rows of formatted cell strings.</summary>
+    /// <summary>
+    /// Reads the worksheet that best resembles a ledger. Many exports put a title/summary
+    /// sheet first and the actual table on a later sheet — so we score every sheet by how
+    /// cleanly its columns map (fewest gaps), preferring the larger table on ties.
+    /// </summary>
     public static List<string[]> ParseWorkbook(byte[] buf)
     {
         using var ms = new MemoryStream(buf);
         using var wb = new XLWorkbook(ms);
-        var ws = wb.Worksheets.FirstOrDefault();
-        var used = ws?.RangeUsed();
-        if (ws == null || used == null) return [];
+
+        List<string[]>? best = null;
+        int bestGaps = int.MaxValue, bestRows = -1;
+
+        foreach (var ws in wb.Worksheets)
+        {
+            var rows = ReadSheet(ws);
+            if (rows.Count < 2) continue; // need at least a header + one data row
+
+            int gaps = Mapper.Gaps(Mapper.AutoDetect(rows)).Count;
+            if (gaps < bestGaps || (gaps == bestGaps && rows.Count > bestRows))
+            {
+                best = rows;
+                bestGaps = gaps;
+                bestRows = rows.Count;
+            }
+        }
+
+        return best ?? [];
+    }
+
+    private static List<string[]> ReadSheet(IXLWorksheet ws)
+    {
+        var used = ws.RangeUsed();
+        if (used == null) return [];
 
         int lastCol = used.LastColumn().ColumnNumber();
         int firstRow = used.FirstRow().RowNumber();

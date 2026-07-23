@@ -28,13 +28,16 @@ public sealed class RunWorker(RunQueue queue, IServiceScopeFactory scopes, ILogg
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "Reconciliation run {RunId} failed", runId);
-                await MarkFailed(runId, ex.Message);
+                // A short, shareable reference so a user can report a failure and we can
+                // grep the server log for the full stack trace by that exact reference.
+                var errRef = "ERR-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+                log.LogError(ex, "Reconciliation run {RunId} failed · Ref {ErrRef}", runId, errRef);
+                await MarkFailed(runId, ex.Message, errRef);
             }
         }
     }
 
-    private async Task MarkFailed(Guid runId, string message)
+    private async Task MarkFailed(Guid runId, string message, string errRef)
     {
         try
         {
@@ -43,9 +46,11 @@ public sealed class RunWorker(RunQueue queue, IServiceScopeFactory scopes, ILogg
             var run = await db.Runs.FirstOrDefaultAsync(r => r.Id == runId);
             if (run != null)
             {
+                var msg = message.Length > 900 ? message[..900] : message;
                 run.Status = "failed";
                 run.Stage = null;
-                run.Error = message.Length > 1000 ? message[..1000] : message;
+                // Prepend the reference so it surfaces in the UI (no schema change needed).
+                run.Error = $"[{errRef}] {msg}";
                 run.CompletedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync();
             }

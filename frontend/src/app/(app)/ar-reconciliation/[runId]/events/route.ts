@@ -13,8 +13,8 @@ export async function GET(_req: Request, { params }: { params: { runId: string }
   const stream = new ReadableStream({
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(o)}\n\n`));
-      const initial = (await first.json()) as { status?: string; stage?: string | null };
-      send({ status: initial.status, stage: initial.stage });
+      const initial = (await first.json()) as { status?: string; stage?: string | null; error?: string | null };
+      send({ status: initial.status, stage: initial.stage, error: initial.error });
       if (initial.status === "completed" || initial.status === "failed") {
         controller.close();
         return;
@@ -23,8 +23,8 @@ export async function GET(_req: Request, { params }: { params: { runId: string }
         await new Promise((res) => setTimeout(res, 1000));
         const res = await apiFetch(`/api/runs/${params.runId}`);
         if (!res.ok) break;
-        const r = (await res.json()) as { status?: string; stage?: string | null };
-        send({ status: r.status, stage: r.stage });
+        const r = (await res.json()) as { status?: string; stage?: string | null; error?: string | null };
+        send({ status: r.status, stage: r.stage, error: r.error });
         if (r.status === "completed" || r.status === "failed") break;
       }
       controller.close();

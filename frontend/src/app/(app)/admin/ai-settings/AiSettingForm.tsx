@@ -40,7 +40,6 @@ export default function AiSettingForm({
   const [model, setModel] = useState(config?.model ?? "");
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(config?.baseUrl ?? "");
-  const [temperature, setTemperature] = useState(config?.temperature ?? "");
   const [isActive, setIsActive] = useState(config?.isActive ?? false);
 
   const [testing, setTesting] = useState(false);
@@ -181,23 +180,10 @@ export default function AiSettingForm({
             </div>
           )}
 
-          <div className={styles.formRow}>
-            <div className={styles.field} style={{ maxWidth: 160 }}>
-              <label className={styles.label}>Temperature</label>
-              <input
-                name="temperature"
-                className={styles.input}
-                placeholder="e.g. 0.20"
-                value={temperature}
-                onChange={(e) => setTemperature(e.target.value)}
-                inputMode="decimal"
-              />
-            </div>
-            <label className={styles.field} style={{ flexDirection: "row", alignItems: "center", gap: 9, alignSelf: "flex-end", paddingBottom: 12 }}>
-              <input type="checkbox" name="isActive" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} style={{ width: 17, height: 17, accentColor: "var(--brand)" }} />
-              <span className={styles.label} style={{ margin: 0 }}>Active</span>
-            </label>
-          </div>
+          <label className={styles.field} style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+            <input type="checkbox" name="isActive" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} style={{ width: 17, height: 17, accentColor: "var(--brand)" }} />
+            <span className={styles.label} style={{ margin: 0 }}>Active</span>
+          </label>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <SaveBtn />

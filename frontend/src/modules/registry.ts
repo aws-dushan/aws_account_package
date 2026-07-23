@@ -20,13 +20,9 @@ export const MODULES: PlatformModule[] = [
     name: "AR Reconciliation",
     href: "/ar-reconciliation",
     features: [
-      { key: "view", label: "View runs & dashboard" },
-      { key: "run.create", label: "Create & execute a reconciliation" },
-      { key: "exception.approve", label: "Approve exceptions" },
-      { key: "exception.adjust", label: "Manually adjust matches" },
-      { key: "report.export", label: "Export reports" },
-      { key: "rules.configure", label: "Configure rules & tolerances" },
-      { key: "run.delete", label: "Delete runs" },
+      { key: "view", label: "View runs & results" },
+      { key: "run.create", label: "Create & run a reconciliation" },
+      { key: "report.export", label: "Download reports & documents" },
     ],
   },
 ];

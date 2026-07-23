@@ -42,21 +42,45 @@ export default function RunProgress({
   }, [runId, router, stages]);
 
   const currentIdx = Math.max(0, stages.indexOf(stage));
-  const stateOf = (i: number) => (i < currentIdx ? styles.stepDone : i === currentIdx ? styles.stepActive : styles.stepTodo);
+  // Progress fills across the run; the active stage counts as half-done.
+  const pct = Math.min(100, Math.round(((currentIdx + 0.5) / stages.length) * 100));
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardPad}>
-        <div className={styles.eyebrow}>{status === "failed" ? "Reconciliation failed" : "Reconciliation in progress"}</div>
-        <h2 style={{ margin: "6px 0 18px", fontSize: 18 }}>{status === "failed" ? "Something went wrong" : "Working through the ledgers…"}</h2>
-        <div className={styles.stepper}>
-          {stages.map((s, i) => (
-            <div key={s} className={`${styles.step} ${stateOf(i)}`}>
-              <span className={styles.stepDot}>{i < currentIdx ? "✓" : i + 1}</span>
-              <span className={styles.stepLabel}>{s}</span>
-            </div>
-          ))}
+    <div className={styles.proc}>
+      <div className={styles.procTop}>
+        <div className={styles.procOrb}>
+          <span className={styles.procOrbDot} />
         </div>
+        <div>
+          <div className={styles.procEyebrow}>Reconciliation in progress</div>
+          <h2 className={styles.procTitle}>{stage}</h2>
+          <div className={styles.procSub}>
+            This runs automatically — column mapping, matching and exceptions. You can leave and come back.
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.procBarWrap}>
+        <div className={styles.procBar} style={{ width: `${pct}%` }} />
+      </div>
+      <div className={styles.procMeta}>
+        <span>
+          Step {Math.min(currentIdx + 1, stages.length)} of {stages.length}
+        </span>
+        <span>{pct}%</span>
+      </div>
+
+      <div className={styles.procSteps}>
+        {stages.map((s, i) => {
+          const cls =
+            i < currentIdx ? styles.procStepDone : i === currentIdx ? styles.procStepActive : "";
+          return (
+            <div key={s} className={`${styles.procStep} ${cls}`}>
+              <span className={styles.procStepIco}>{i < currentIdx ? "✓" : i + 1}</span>
+              {s}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

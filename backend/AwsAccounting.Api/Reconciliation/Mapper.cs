@@ -43,7 +43,7 @@ public static partial class Mapper
 
     private static readonly Dictionary<string, string[]> Synonyms = new()
     {
-        ["reference"] = ["reference", "ref", "refno", "ref#", "document", "documentno", "docno", "doc#", "voucher", "voucherno", "invoice", "invoiceno", "invno", "billno", "transactionno", "txnno", "chequeno"],
+        ["reference"] = ["reference", "ref", "refno", "ref#", "document", "documentno", "docno", "doc#", "voucher", "voucherno", "invoice", "invoiceno", "invno", "billno", "transactionno", "transactionnumber", "transno", "txnno", "chequeno", "srno", "slno", "serialno", "entryno", "glref", "documentref", "docref"],
         ["date"] = ["date", "postingdate", "docdate", "documentdate", "transactiondate", "txndate", "valuedate", "entrydate"],
         ["description"] = ["description", "narration", "particulars", "details", "memo", "remarks", "notes", "naration"],
         ["debit"] = ["debit", "dr", "debitamount", "dramount", "withdrawal", "debitaed"],
@@ -67,10 +67,13 @@ public static partial class Mapper
         return best;
     }
 
+    /// <summary>Best field-match score for a single header cell (0–3) — used by the PDF header detector.</summary>
+    public static int BestFieldScore(string? header) => Fields.Max(f => FieldScore(header, f));
+
     public static int DetectHeaderRow(IReadOnlyList<string[]> rows)
     {
         int bestRow = 0, bestScore = -1;
-        int limit = Math.Min(rows.Count, 20);
+        int limit = Math.Min(rows.Count, 35);
         for (int i = 0; i < limit; i++)
         {
             int score = (rows[i] ?? []).Sum(cell => Fields.Max(f => FieldScore(cell, f)));

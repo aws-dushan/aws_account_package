@@ -1,11 +1,10 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { currentUser } from "@/lib/session";
 import { apiFetch, apiPost, ApiError } from "@/lib/api";
 
-export type FormState = { error?: string };
+export type FormState = { error?: string; runId?: string };
 export type ExceptionStatus = "open" | "approved" | "adjusted" | "resolved";
 
 const OK_EXT = /\.(xlsx|xls|csv|pdf)$/i;
@@ -53,7 +52,7 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
     return { error: e instanceof ApiError ? e.message : "Reconciliation failed to start." };
   }
 
-  redirect(`/ar-reconciliation/${runId}`);
+  return { runId };
 }
 
 /** On-demand AI commentary for a run's exceptions. */
