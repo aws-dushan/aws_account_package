@@ -7,6 +7,11 @@ This is the first client-showable build.
 
 ## Scope
 - [ ] Upload → **local volume**, **SHA-256 always**, **retention setting**, server-side validation
+- [ ] **Multi-format ledger handling** — customers ship different layouts. A mapping layer
+      auto-detects the header row + columns (reference/date/description/debit/credit or a single
+      signed amount), the user can confirm/override, and profiles are saved per counterparty.
+      The **matching engine stays format-agnostic** (operates on canonical lines). *(mapping +
+      engine built & self-checked: `npm run engine:check`)*
 - [ ] **Worker + BullMQ + Redis**; live progress via **SSE**
 - [ ] Reconciliation pipeline:
   - Stage 1 Intake · Stage 2 Parse & cleanse (SheetJS → canonical schema)

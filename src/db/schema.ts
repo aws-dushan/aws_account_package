@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb, integer, date } from "drizzle-orm/pg-core";
 
 /**
  * Tenants = companies. The platform is multi-tenant: each company has its own
@@ -78,8 +78,106 @@ export const auditLog = pgTable("audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ============================================================
+//  AR Reconciliation (Phase 2) — all tenant-scoped
+// ============================================================
+
+/** Uploaded source files. SHA-256 stored permanently; original retained per policy. */
+export const files = pgTable("files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  kind: varchar("kind", { length: 20 }).notNull(), // statement | customer | report
+  originalName: varchar("original_name", { length: 255 }).notNull(),
+  mime: varchar("mime", { length: 120 }),
+  sizeBytes: integer("size_bytes"),
+  sha256: varchar("sha256", { length: 64 }).notNull(),
+  storageKey: varchar("storage_key", { length: 255 }), // path in the uploads volume; null once purged
+  uploadedBy: uuid("uploaded_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One reconciliation run: an AWS Statement of Account vs a Customer Ledger for a period. */
+export const reconciliationRuns = pgTable("reconciliation_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 160 }).notNull(),
+  periodStart: date("period_start"),
+  periodEnd: date("period_end"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft|running|completed|failed
+  statementFileId: uuid("statement_file_id").references(() => files.id),
+  customerFileId: uuid("customer_file_id").references(() => files.id),
+  autoMatchPct: numeric("auto_match_pct", { precision: 5, scale: 2 }),
+  matchedValue: numeric("matched_value", { precision: 16, scale: 2 }),
+  totalDifference: numeric("total_difference", { precision: 16, scale: 2 }),
+  unexplained: numeric("unexplained", { precision: 16, scale: 2 }),
+  error: text("error"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+/** Staged, normalised ledger lines for a run (both sides). */
+export const ledgerLines = pgTable("ledger_lines", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  runId: uuid("run_id").notNull().references(() => reconciliationRuns.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull(),
+  side: varchar("side", { length: 12 }).notNull(), // statement | customer
+  reference: varchar("reference", { length: 200 }),
+  normRef: varchar("norm_ref", { length: 200 }),
+  txnDate: date("txn_date"),
+  description: varchar("description", { length: 400 }),
+  debit: numeric("debit", { precision: 16, scale: 2 }).notNull().default("0"),
+  credit: numeric("credit", { precision: 16, scale: 2 }).notNull().default("0"),
+  amount: numeric("amount", { precision: 16, scale: 2 }).notNull().default("0"),
+  sourceRow: integer("source_row"),
+  matchId: uuid("match_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A confirmed/suggested match grouping one or more lines from each side. */
+export const matches = pgTable("matches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  runId: uuid("run_id").notNull().references(() => reconciliationRuns.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull(),
+  ruleCode: varchar("rule_code", { length: 8 }).notNull(), // R, RA, RE, F, 1:M, M:1
+  method: varchar("method", { length: 8 }).notNull().default("rule"), // rule | ai
+  confidence: numeric("confidence", { precision: 4, scale: 3 }),
+  status: varchar("status", { length: 16 }).notNull().default("auto"), // auto | ai_suggested | user_confirmed
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const matchLines = pgTable(
+  "match_lines",
+  {
+    matchId: uuid("match_id").notNull().references(() => matches.id, { onDelete: "cascade" }),
+    ledgerLineId: uuid("ledger_line_id").notNull().references(() => ledgerLines.id, { onDelete: "cascade" }),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.matchId, t.ledgerLineId] }) }),
+);
+
+/** Residual items that did not reconcile, with category + severity (+ AI fields in Phase 3). */
+export const exceptions = pgTable("exceptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  runId: uuid("run_id").notNull().references(() => reconciliationRuns.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id").notNull(),
+  ledgerLineId: uuid("ledger_line_id").references(() => ledgerLines.id, { onDelete: "cascade" }),
+  categoryCode: varchar("category_code", { length: 12 }).notNull(), // D, E, BAR, F, FR, ...
+  severity: varchar("severity", { length: 2 }).notNull(), // g | a | c | r | n
+  amount: numeric("amount", { precision: 16, scale: 2 }),
+  aiExplanation: text("ai_explanation"),
+  aiRecommendation: text("ai_recommendation"),
+  aiModel: varchar("ai_model", { length: 120 }),
+  status: varchar("status", { length: 16 }).notNull().default("open"), // open|approved|adjusted|resolved
+  resolvedBy: uuid("resolved_by"),
+  resolutionNote: text("resolution_note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AiSetting = typeof aiSettings.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
+export type ReconciliationRun = typeof reconciliationRuns.$inferSelect;
+export type LedgerLine = typeof ledgerLines.$inferSelect;
+export type ExceptionRow = typeof exceptions.$inferSelect;
 
