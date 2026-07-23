@@ -29,6 +29,9 @@
 .signout{width:100%;padding:9px;border:1px solid var(--hair);background:var(--card);color:var(--ink-2);
   border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:.14s}
 .signout:hover{background:var(--r-fill);color:var(--r-ink);border-color:var(--r-bd)}
+.themeToggle{width:100%;padding:9px;border:1px solid var(--hair);background:var(--card);color:var(--ink-2);
+  border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:.14s;display:flex;align-items:center;gap:8px;justify-content:center}
+.themeToggle:hover{border-color:var(--brand-3);color:var(--ink)}
 
 .main{padding:34px 40px; max-width:1100px; width:100%}
 
@@ -74,6 +77,15 @@
 .stAdjusted{background:var(--a-fill); color:var(--a-ink); border-color:var(--a-bd)}
 .stResolved{background:var(--n-fill); color:var(--n-ink); border-color:var(--n-bd)}
 .clickRow{cursor:pointer}
+
+/* virtualized exception list */
+.vHead,.vRow{display:grid; grid-template-columns:130px minmax(150px,1fr) 110px 150px 120px; align-items:center; gap:12px; padding:0 22px}
+.vHead{height:40px; border-bottom:2px solid var(--hair); font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); font-weight:700}
+.vScroll{max-height:540px; overflow:auto; position:relative}
+.vRow{position:absolute; top:0; left:0; right:0; height:46px; border-bottom:1px solid var(--hair); cursor:pointer; font-size:13.5px}
+.vRow:hover{background:color-mix(in srgb,var(--brand) 4%, transparent)}
+.vCell{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.vRight{text-align:right}
 
 /* drawer */
 .drawerOverlay{position:fixed; inset:0; z-index:50; background:rgba(10,8,24,.42);

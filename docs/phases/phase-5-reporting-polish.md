@@ -5,13 +5,16 @@
 **Depends on:** Phase 2 (data) + Phase 3 (AI content).
 
 ## Scope
-- [ ] **PDF export** — headless render of the approved report design (branded, pastel, print-safe)
-- [ ] Animation pass across the app (Framer Motion), consistent motion language
-- [ ] **Page-transition animations** (route changes) — smooth enter/exit across the shell
-- [ ] **Data-loading animations** — skeletons/shimmers + optimistic states for tables, dashboards, and long reconciliation runs (respect `prefers-reduced-motion`)
-- [ ] Dark-theme QA on every screen
-- [ ] **Accessibility:** WCAG AA, keyboard nav, visible focus, `prefers-reduced-motion`
-- [ ] Performance: virtualized tables (TanStack), DB indexes on hot paths
+- [x] **PDF export** — branded report via **pdfkit** (no headless browser): masthead, KPIs,
+      colour-coded exception table. Route `/[runId]/export/pdf`. Shared `assembleExportData`.
+- [x] Animation pass — **page-transition** (`(app)/template.tsx`, Framer Motion) on every nav.
+- [x] **Data-loading animations** — `loading.tsx` skeletons (shimmer) for dashboard, runs list,
+      run results, and every admin page; run-progress live stepper (from Phase 2).
+- [x] **Dark-theme** — theme toggle in the shell (persisted, no-FOUC inline script); token-driven.
+- [x] **Accessibility** — `prefers-reduced-motion` honoured across skeletons/transitions/stepper/
+      login; visible focus rings; ARIA on the drawer + toggles.
+- [x] Performance — **virtualized** exception list (`@tanstack/react-virtual`); DB indexes on
+      hot paths (run_id, tenant_id, audit created_at).
 
 ## Deliverables
 - Branded PDF export matching the approved artifact

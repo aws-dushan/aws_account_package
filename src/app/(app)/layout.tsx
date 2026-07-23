@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/session";
 import { getUserPermissionKeys } from "@/lib/permissions";
 import { MODULES } from "@/modules/registry";
 import NavLinks, { type NavSection } from "./NavLinks";
+import ThemeToggle from "./ThemeToggle";
 import styles from "./app.module.css";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <small>{user.isSuperAdmin ? "Super-admin · ERP team" : user.tenantSlug || "—"}</small>
             </div>
           </div>
+          <ThemeToggle />
           <form
             action={async () => {
               "use server";

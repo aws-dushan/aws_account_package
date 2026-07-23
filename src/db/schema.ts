@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb, integer, date, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb, integer, date, unique, index } from "drizzle-orm/pg-core";
 
 /**
  * Tenants = companies. The platform is multi-tenant: each company has its own
@@ -76,7 +76,7 @@ export const auditLog = pgTable("audit_log", {
   tenantId: uuid("tenant_id"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({ createdIdx: index("audit_created_idx").on(t.createdAt), tenantIdx: index("audit_tenant_idx").on(t.tenantId) }));
 
 // ============================================================
 //  AR Reconciliation (Phase 2) — all tenant-scoped
@@ -113,7 +113,7 @@ export const reconciliationRuns = pgTable("reconciliation_runs", {
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+}, (t) => ({ tenantIdx: index("recon_runs_tenant_idx").on(t.tenantId) }));
 
 /** Staged, normalised ledger lines for a run (both sides). */
 export const ledgerLines = pgTable("ledger_lines", {
@@ -131,7 +131,7 @@ export const ledgerLines = pgTable("ledger_lines", {
   sourceRow: integer("source_row"),
   matchId: uuid("match_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({ runIdx: index("ledger_lines_run_idx").on(t.runId) }));
 
 /** A confirmed/suggested match grouping one or more lines from each side. */
 export const matches = pgTable("matches", {
@@ -143,7 +143,7 @@ export const matches = pgTable("matches", {
   confidence: numeric("confidence", { precision: 4, scale: 3 }),
   status: varchar("status", { length: 16 }).notNull().default("auto"), // auto | ai_suggested | user_confirmed
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({ runIdx: index("matches_run_idx").on(t.runId) }));
 
 export const matchLines = pgTable(
   "match_lines",
@@ -170,7 +170,7 @@ export const exceptions = pgTable("exceptions", {
   resolvedBy: uuid("resolved_by"),
   resolutionNote: text("resolution_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({ runIdx: index("exceptions_run_idx").on(t.runId) }));
 
 /**
  * Learned column mappings. Keyed by a fingerprint of the ledger's headers, per

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { resolveException, confirmSuggestion, type ExceptionStatus } from "../actions";
 import { CATEGORY_LABEL } from "@/modules/ar-reconciliation/labels";
 import styles from "../../app.module.css";
@@ -46,6 +47,8 @@ export default function ExceptionQueue({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => 46, overscan: 12 });
 
   function open(row: ExceptionRow) {
     setSel(row);
@@ -83,42 +86,35 @@ export default function ExceptionQueue({
 
   return (
     <>
-      <div className={styles.tableWrap}>
-        {rows.length === 0 ? (
-          <div className={styles.empty}>No exceptions — everything reconciled. 🎉</div>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Description</th>
-                <th className="num" style={{ textAlign: "right" }}>Amount</th>
-                <th>Category</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((e) => (
-                <tr key={e.id} className={styles.clickRow} onClick={() => open(e)}>
-                  <td className={styles.mono} style={{ fontWeight: 600 }}>{e.reference || "—"}</td>
-                  <td style={{ color: "var(--ink-2)" }}>{e.description || "—"}</td>
-                  <td className={styles.mono} style={{ textAlign: "right" }}>{aed(e.amount)}</td>
-                  <td>
-                    <span className={`${styles.badge} ${SEV[e.severity] ?? styles.badgeOff}`}>
-                      {CATEGORY_LABEL[e.category] ?? e.category}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`${styles.badge} ${STATUS[e.status]?.cls ?? styles.badgeOff}`}>
-                      {STATUS[e.status]?.label ?? e.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {rows.length === 0 ? (
+        <div className={styles.empty}>No exceptions — everything reconciled. 🎉</div>
+      ) : (
+        <div>
+          <div className={styles.vHead}>
+            <div>Reference</div>
+            <div>Description</div>
+            <div className={styles.vRight}>Amount</div>
+            <div>Category</div>
+            <div>Status</div>
+          </div>
+          <div ref={scrollRef} className={styles.vScroll}>
+            <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+              {virtualizer.getVirtualItems().map((vi) => {
+                const e = rows[vi.index];
+                return (
+                  <div key={e.id} className={styles.vRow} style={{ transform: `translateY(${vi.start}px)` }} onClick={() => open(e)}>
+                    <div className={`${styles.mono} ${styles.vCell}`} style={{ fontWeight: 600 }}>{e.reference || "—"}</div>
+                    <div className={styles.vCell} style={{ color: "var(--ink-2)" }}>{e.description || "—"}</div>
+                    <div className={`${styles.mono} ${styles.vRight}`}>{aed(e.amount)}</div>
+                    <div><span className={`${styles.badge} ${SEV[e.severity] ?? styles.badgeOff}`}>{CATEGORY_LABEL[e.category] ?? e.category}</span></div>
+                    <div><span className={`${styles.badge} ${STATUS[e.status]?.cls ?? styles.badgeOff}`}>{STATUS[e.status]?.label ?? e.status}</span></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {sel && (
         <div className={styles.drawerOverlay} onClick={() => setSel(null)}>
