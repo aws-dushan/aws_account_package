@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { reconciliationRuns, files, tenants } from "@/db/schema";
+import { reconciliationRuns, files, tenants, exceptions } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
@@ -89,4 +90,44 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
   }
 
   redirect(`/ar-reconciliation/${run.id}`);
+}
+
+export type ExceptionStatus = "open" | "approved" | "adjusted" | "resolved";
+
+export async function resolveException(input: {
+  exceptionId: string;
+  status: ExceptionStatus;
+  note?: string;
+}): Promise<{ ok?: boolean; error?: string }> {
+  const user = await currentUser();
+  if (!user) return { error: "Not signed in." };
+
+  const [ex] = await db
+    .select({ tenantId: exceptions.tenantId, runId: exceptions.runId })
+    .from(exceptions)
+    .where(eq(exceptions.id, input.exceptionId))
+    .limit(1);
+  if (!ex) return { error: "Exception not found." };
+  if (!user.isSuperAdmin && ex.tenantId !== user.tenantId) return { error: "Not allowed." };
+
+  const need = input.status === "adjusted" ? "ar-reconciliation.exception.adjust" : "ar-reconciliation.exception.approve";
+  if (!(await can(user, need))) return { error: "You don't have permission for that action." };
+
+  await db
+    .update(exceptions)
+    .set({
+      status: input.status,
+      resolvedBy: input.status === "open" ? null : user.id,
+      resolutionNote: input.note?.slice(0, 1000) ?? null,
+    })
+    .where(eq(exceptions.id, input.exceptionId));
+
+  await writeAudit({
+    action: "reconciliation.exception." + input.status,
+    entity: "exception",
+    entityId: input.exceptionId,
+    tenantId: ex.tenantId,
+  });
+  revalidatePath(`/ar-reconciliation/${ex.runId}`);
+  return { ok: true };
 }

@@ -5,12 +5,10 @@ import { db } from "@/db";
 import { reconciliationRuns, exceptions, ledgerLines, matches, tenants } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
-import { CATEGORY_LABEL, SEVERITY_ORDER } from "@/modules/ar-reconciliation/labels";
+import { SEVERITY_ORDER } from "@/modules/ar-reconciliation/labels";
+import ExceptionQueue from "./ExceptionQueue";
 import styles from "../../app.module.css";
 
-const SEV_CLASS: Record<string, string> = {
-  g: styles.sevG, a: styles.sevA, c: styles.sevC, r: styles.sevR, n: styles.sevN,
-};
 const aed = (v: string | number | null) =>
   v == null ? "—" : "AED " + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -19,6 +17,8 @@ export default async function RunResults({ params }: { params: { runId: string }
   if (!user) redirect("/login");
   if (!(await can(user, "ar-reconciliation.view"))) redirect("/dashboard");
   const canExport = await can(user, "ar-reconciliation.report.export");
+  const canApprove = await can(user, "ar-reconciliation.exception.approve");
+  const canAdjust = await can(user, "ar-reconciliation.exception.adjust");
 
   const [run] = await db
     .select({
@@ -51,6 +51,8 @@ export default async function RunResults({ params }: { params: { runId: string }
       categoryCode: exceptions.categoryCode,
       severity: exceptions.severity,
       amount: exceptions.amount,
+      status: exceptions.status,
+      note: exceptions.resolutionNote,
       reference: ledgerLines.reference,
       description: ledgerLines.description,
       side: ledgerLines.side,
@@ -60,6 +62,18 @@ export default async function RunResults({ params }: { params: { runId: string }
     .where(eq(exceptions.runId, run.id));
 
   exRows.sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
+  const openCount = exRows.filter((e) => e.status === "open").length;
+  const queueRows = exRows.map((e) => ({
+    id: e.id,
+    reference: e.reference ?? "",
+    description: e.description ?? "",
+    side: e.side ?? "",
+    category: e.categoryCode,
+    severity: e.severity,
+    amount: e.amount,
+    status: e.status,
+    note: e.note,
+  }));
 
   return (
     <>
@@ -101,8 +115,8 @@ export default async function RunResults({ params }: { params: { runId: string }
             <div className={styles.kpi}>
               <span className={styles.kStripe} style={{ background: "var(--c-ink)" }} />
               <div className={styles.kLab}>Open exceptions</div>
-              <div className={styles.kVal}>{exRows.length}</div>
-              <div className={styles.kFoot}>Need review</div>
+              <div className={styles.kVal}>{openCount}</div>
+              <div className={styles.kFoot}>of {exRows.length} total</div>
             </div>
             <div className={styles.kpi}>
               <span className={styles.kStripe} style={{ background: "var(--brand-2)" }} />
@@ -113,41 +127,11 @@ export default async function RunResults({ params }: { params: { runId: string }
           </div>
 
           <div className={styles.card}>
-            <div className={styles.cardHead}>Exception queue ({exRows.length})</div>
-            <div className={styles.tableWrap}>
-              {exRows.length === 0 ? (
-                <div className={styles.empty}>No exceptions — everything reconciled. 🎉</div>
-              ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Description</th>
-                      <th>Side</th>
-                      <th className="num" style={{ textAlign: "right" }}>Amount</th>
-                      <th>Category</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exRows.map((e) => (
-                      <tr key={e.id}>
-                        <td className={styles.mono} style={{ fontWeight: 600 }}>{e.reference || "—"}</td>
-                        <td style={{ color: "var(--ink-2)" }}>{e.description || "—"}</td>
-                        <td style={{ color: "var(--muted)", fontSize: 12.5 }}>
-                          {e.side === "statement" ? "Statement" : e.side === "customer" ? "Customer" : "—"}
-                        </td>
-                        <td className={styles.mono} style={{ textAlign: "right" }}>{aed(e.amount)}</td>
-                        <td>
-                          <span className={`${styles.badge} ${SEV_CLASS[e.severity] ?? styles.badgeOff}`}>
-                            {CATEGORY_LABEL[e.categoryCode] ?? e.categoryCode}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <div className={styles.cardHead}>
+              Exception queue ({exRows.length})
+              {(canApprove || canAdjust) && <span className={styles.help}>Click a row to review & resolve</span>}
             </div>
+            <ExceptionQueue rows={queueRows} canApprove={canApprove} canAdjust={canAdjust} />
           </div>
         </>
       )}

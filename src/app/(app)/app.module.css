@@ -68,6 +68,37 @@
 .sevR{background:var(--r-fill); color:var(--r-ink); border-color:var(--r-bd)}
 .sevN{background:var(--n-fill); color:var(--n-ink); border-color:var(--n-bd)}
 
+/* status chips (exception workflow) */
+.stOpen{background:var(--c-fill); color:var(--c-ink); border-color:var(--c-bd)}
+.stApproved{background:var(--g-fill); color:var(--g-ink); border-color:var(--g-bd)}
+.stAdjusted{background:var(--a-fill); color:var(--a-ink); border-color:var(--a-bd)}
+.stResolved{background:var(--n-fill); color:var(--n-ink); border-color:var(--n-bd)}
+.clickRow{cursor:pointer}
+
+/* drawer */
+.drawerOverlay{position:fixed; inset:0; z-index:50; background:rgba(10,8,24,.42);
+  display:flex; justify-content:flex-end; animation:fadeIn .18s ease}
+.drawer{width:min(460px,100%); height:100%; background:var(--card); box-shadow:-24px 0 60px -30px rgba(0,0,0,.6);
+  display:flex; flex-direction:column; animation:slideIn .26s cubic-bezier(.22,1,.36,1); overflow-y:auto}
+.drawerHead{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  padding:20px 22px; border-bottom:1px solid var(--hair); position:sticky; top:0; background:var(--card); z-index:1}
+.drawerHead h3{margin:0; font-size:17px; font-weight:750}
+.drawerHead .sub{font-size:12.5px; color:var(--muted); margin-top:3px; font-variant-numeric:tabular-nums}
+.drawerX{background:none; border:none; cursor:pointer; color:var(--muted); font-size:20px; line-height:1; padding:4px 8px; border-radius:8px}
+.drawerX:hover{background:var(--hair); color:var(--ink)}
+.drawerBody{padding:20px 22px; display:flex; flex-direction:column; gap:16px}
+.dRow{display:flex; justify-content:space-between; gap:12px; font-size:13.5px}
+.dRow .dK{color:var(--muted)}
+.dRow .dV{font-weight:600; text-align:right}
+.noteArea{width:100%; min-height:80px; padding:10px 12px; background:var(--surface); color:var(--ink);
+  border:1.5px solid var(--hair); border-radius:11px; font-size:13.5px; font-family:inherit; outline:none; resize:vertical}
+.noteArea:focus{border-color:var(--brand-3); box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-3) 16%,transparent)}
+.drawerActions{display:flex; flex-wrap:wrap; gap:8px}
+.aiPanel{background:var(--ai-fill); border:1px solid var(--ai-bd); color:var(--ai-ink); border-radius:11px; padding:12px 14px; font-size:12.5px; line-height:1.5}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideIn{from{transform:translateX(30px); opacity:.4}to{transform:none; opacity:1}}
+@media (prefers-reduced-motion:reduce){.drawerOverlay,.drawer{animation:none}}
+
 /* KPI tiles */
 .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px}
 .kpi{background:var(--card); border:1px solid var(--hair); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden}
