@@ -40,8 +40,6 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
 
   const name = String(fd.get("name") || "").trim();
   if (name.length < 2) return { error: "Enter a name for this reconciliation." };
-  const periodStart = String(fd.get("periodStart") || "") || null;
-  const periodEnd = String(fd.get("periodEnd") || "") || null;
 
   const statement = await readFile(fd.get("statement"));
   const customer = await readFile(fd.get("customer"));
@@ -54,7 +52,7 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
   // Create the run (running), then store files + execute.
   const [run] = await db
     .insert(reconciliationRuns)
-    .values({ tenantId, name, periodStart, periodEnd, status: "running", createdBy: user.id })
+    .values({ tenantId, name, status: "running", createdBy: user.id })
     .returning({ id: reconciliationRuns.id });
 
   try {
@@ -75,7 +73,6 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
       tenantId,
       statementRows: parseWorkbook(statement.buf),
       customerRows: parseWorkbook(customer.buf),
-      periodEnd,
     });
 
     await writeAudit({

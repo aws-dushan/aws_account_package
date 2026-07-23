@@ -18,6 +18,7 @@ export default async function RunResults({ params }: { params: { runId: string }
   const user = await currentUser();
   if (!user) redirect("/login");
   if (!(await can(user, "ar-reconciliation.view"))) redirect("/dashboard");
+  const canExport = await can(user, "ar-reconciliation.report.export");
 
   const [run] = await db
     .select({
@@ -28,8 +29,7 @@ export default async function RunResults({ params }: { params: { runId: string }
       autoMatchPct: reconciliationRuns.autoMatchPct,
       matchedValue: reconciliationRuns.matchedValue,
       error: reconciliationRuns.error,
-      periodStart: reconciliationRuns.periodStart,
-      periodEnd: reconciliationRuns.periodEnd,
+      createdAt: reconciliationRuns.createdAt,
       company: tenants.name,
     })
     .from(reconciliationRuns)
@@ -71,9 +71,14 @@ export default async function RunResults({ params }: { params: { runId: string }
           <h1>{run.name}</h1>
           <p>
             {run.company ? `${run.company} · ` : ""}
-            {run.periodStart && run.periodEnd ? `${run.periodStart} → ${run.periodEnd}` : "Period not set"}
+            {run.createdAt.toISOString().slice(0, 16).replace("T", " ")}
           </p>
         </div>
+        {canExport && run.status === "completed" && (
+          <a href={`/ar-reconciliation/${run.id}/export`} className={`${styles.btn} ${styles.btnPrimary}`}>
+            ⭳ Export Excel
+          </a>
+        )}
       </div>
 
       {run.status === "failed" ? (

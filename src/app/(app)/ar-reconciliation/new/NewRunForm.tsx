@@ -44,17 +44,6 @@ export default function NewRunForm({
 
       <div className={styles.formRow}>
         <div className={styles.field}>
-          <label className={styles.label}>Period start</label>
-          <input name="periodStart" type="date" className={styles.input} />
-        </div>
-        <div className={styles.field}>
-          <label className={styles.label}>Period end</label>
-          <input name="periodEnd" type="date" className={styles.input} />
-        </div>
-      </div>
-
-      <div className={styles.formRow}>
-        <div className={styles.field}>
           <label className={styles.label}>Statement of Account</label>
           <input name="statement" type="file" accept=".xlsx,.xls,.csv" className={styles.input} style={{ paddingTop: 12 }} required />
         </div>
