@@ -56,6 +56,7 @@ export type ReconcileOptions = {
 };
 
 export type ReconcileResult = {
+  lines: CanonLine[]; // all canonical lines (both sides), keyed for persistence
   matches: MatchResult[];
   exceptions: ExceptionResult[];
   nettedKeys: string[];

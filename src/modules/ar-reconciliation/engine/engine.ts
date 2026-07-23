@@ -137,6 +137,7 @@ export function reconcile(
   const matchedLines = matches.reduce((n, m) => n + m.statementKeys.length + m.customerKeys.length, 0) + netted.size;
   const total = S.length + C.length;
   return {
+    lines: all,
     matches,
     exceptions,
     nettedKeys: [...netted],

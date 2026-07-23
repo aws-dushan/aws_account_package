@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "engine:check": "tsx scripts/engine-check.ts"
+    "engine:check": "tsx scripts/engine-check.ts",
+    "run:check": "tsx scripts/run-check.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -24,6 +25,7 @@
     "pg": "^8.22.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

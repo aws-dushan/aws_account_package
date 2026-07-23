@@ -61,6 +61,21 @@
 .badgeOk{background:var(--g-fill); color:var(--g-ink); border-color:var(--g-bd)}
 .badgeOff{background:var(--n-fill); color:var(--n-ink); border-color:var(--n-bd)}
 .badgeAdmin{background:var(--ai-fill); color:var(--ai-ink); border-color:var(--ai-bd)}
+/* severity chips (reconciliation) */
+.sevG{background:var(--g-fill); color:var(--g-ink); border-color:var(--g-bd)}
+.sevA{background:var(--a-fill); color:var(--a-ink); border-color:var(--a-bd)}
+.sevC{background:var(--c-fill); color:var(--c-ink); border-color:var(--c-bd)}
+.sevR{background:var(--r-fill); color:var(--r-ink); border-color:var(--r-bd)}
+.sevN{background:var(--n-fill); color:var(--n-ink); border-color:var(--n-bd)}
+
+/* KPI tiles */
+.kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px}
+.kpi{background:var(--card); border:1px solid var(--hair); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden}
+.kpi .kLab{font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); font-weight:700}
+.kpi .kVal{font-family:var(--serif); font-size:27px; font-weight:600; margin-top:8px; letter-spacing:-.01em; line-height:1}
+.kpi .kFoot{font-size:12px; color:var(--ink-2); margin-top:7px}
+.kpi .kStripe{position:absolute; left:0; top:0; bottom:0; width:4px}
+@media (max-width:900px){ .kpis{grid-template-columns:repeat(2,1fr)} }
 
 /* ===== buttons ===== */
 .btn{display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:10px; font-size:13.5px;
