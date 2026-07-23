@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { currentUser } from "@/lib/session";
 import { apiGet } from "@/lib/api";
 import { setUserActive } from "./actions";
-import UserForm from "./UserForm";
+import NewUserModal from "./NewUserModal";
+import ManagePermissionsModal from "./ManagePermissionsModal";
+import ResetPasswordButton from "./ResetPasswordButton";
 import styles from "../../app.module.css";
 
 type UserRow = {
@@ -30,12 +31,12 @@ export default async function UsersPage() {
           <h1>Users</h1>
           <p>Create accounts, assign each to a company, then set permissions.</p>
         </div>
+        <NewUserModal companies={companies} />
       </div>
 
-      <div className={styles.grid2}>
-        <div className={styles.card}>
-          <div className={styles.cardHead}>All users ({rows.length})</div>
-          <div className={styles.tableWrap}>
+      <div className={styles.card}>
+        <div className={styles.cardHead}>All users ({rows.length})</div>
+        <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -49,9 +50,7 @@ export default async function UsersPage() {
                 {rows.map((u) => (
                   <tr key={u.id}>
                     <td>
-                      <Link href={`/admin/users/${u.id}`} style={{ fontWeight: 700, color: "var(--brand-3)" }}>
-                        {u.displayName}
-                      </Link>
+                      <b>{u.displayName}</b>
                       <div className={styles.mono} style={{ fontSize: 12, color: "var(--muted)" }}>
                         {u.username}
                         {u.isAdmin && (
@@ -69,9 +68,8 @@ export default async function UsersPage() {
                     </td>
                     <td>
                       <div className={styles.rowActions}>
-                        <Link href={`/admin/users/${u.id}`} className={`${styles.btn} ${styles.btnSmall} ${styles.btnGhost}`}>
-                          Manage
-                        </Link>
+                        <ManagePermissionsModal userId={u.id} displayName={u.displayName} username={u.username} />
+                        <ResetPasswordButton userId={u.id} displayName={u.displayName} />
                         {me?.id !== u.id && (
                           <form action={setUserActive.bind(null, u.id, !u.isActive)}>
                             <button type="submit" className={`${styles.btn} ${styles.btnSmall} ${styles.btnGhost} ${styles.btnDanger}`}>
@@ -87,18 +85,6 @@ export default async function UsersPage() {
             </table>
           </div>
         </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardHead}>New user</div>
-          <div className={styles.cardPad}>
-            {companies.length === 0 ? (
-              <div className={styles.empty}>Create a company first, then add users to it.</div>
-            ) : (
-              <UserForm companies={companies} />
-            )}
-          </div>
-        </div>
-      </div>
     </>
   );
 }

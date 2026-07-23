@@ -78,7 +78,11 @@ public class RunsController(
         if (scope is not null) q = q.Where(r => r.TenantId == scope);
 
         var rows = await q.OrderByDescending(r => r.CreatedAt).Take(200)
-            .Select(r => new { r.Id, r.Name, r.Status, r.Stage, r.AutoMatchPct, r.MatchedValue, r.Error, r.CreatedAt, r.CompletedAt, r.TenantId })
+            .Select(r => new
+            {
+                r.Id, r.Name, r.Status, r.Stage, r.AutoMatchPct, r.MatchedValue, r.Error, r.CreatedAt, r.CompletedAt, r.TenantId,
+                CreatedByName = db.Users.Where(u => u.Id == r.CreatedBy).Select(u => u.DisplayName).FirstOrDefault(),
+            })
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -148,6 +152,30 @@ public class RunsController(
         var bytes = exporter.BuildPdf(data);
         await audit.WriteAsync("run.export", "reconciliation_run", id.ToString(), run.TenantId, new { format = "pdf" });
         return File(bytes, "application/pdf", Filename(run.Name, "pdf"));
+    }
+
+    // ---- original source documents -------------------------------------------
+    [HttpGet("{id:guid}/source/{which}")]
+    public async Task<IActionResult> Source(Guid id, string which, CancellationToken ct)
+    {
+        if (!await perms.CanAsync("ar-reconciliation.view", ct)) return Deny("ar-reconciliation.view");
+        var run = await LoadScoped(id, ct);
+        if (run is null) return NotFound();
+
+        var fileId = which switch
+        {
+            "statement" => run.StatementFileId,
+            "customer" => run.CustomerFileId,
+            _ => (Guid?)null,
+        };
+        if (fileId is null) return NotFound();
+
+        var rec = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fileId.Value, ct);
+        if (rec is null) return NotFound();
+
+        var bytes = await storage.ReadAsync(rec, ct);
+        var name = string.IsNullOrWhiteSpace(rec.OriginalName) ? $"{which}" : rec.OriginalName;
+        return File(bytes, rec.Mime ?? "application/octet-stream", name);
     }
 
     // ---- on-demand AI commentary ---------------------------------------------

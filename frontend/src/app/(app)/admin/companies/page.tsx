@@ -1,6 +1,6 @@
 import { apiGet } from "@/lib/api";
 import { setCompanyActive } from "./actions";
-import CompanyForm from "./CompanyForm";
+import NewCompanyModal from "./NewCompanyModal";
 import styles from "../../app.module.css";
 
 type Company = { id: string; name: string; slug: string; isActive: boolean };
@@ -16,15 +16,15 @@ export default async function CompaniesPage() {
           <h1>Companies</h1>
           <p>Each company is a tenant. Users and data are isolated per company.</p>
         </div>
+        <NewCompanyModal />
       </div>
 
-      <div className={styles.grid2}>
-        <div className={styles.card}>
-          <div className={styles.cardHead}>All companies ({rows.length})</div>
-          <div className={styles.tableWrap}>
-            {rows.length === 0 ? (
-              <div className={styles.empty}>No companies yet. Create one on the right.</div>
-            ) : (
+      <div className={styles.card}>
+        <div className={styles.cardHead}>All companies ({rows.length})</div>
+        <div className={styles.tableWrap}>
+          {rows.length === 0 ? (
+            <div className={styles.empty}>No companies yet. Use “New company” to add one.</div>
+          ) : (
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -58,14 +58,6 @@ export default async function CompaniesPage() {
                 </tbody>
               </table>
             )}
-          </div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardHead}>New company</div>
-          <div className={styles.cardPad}>
-            <CompanyForm />
-          </div>
         </div>
       </div>
     </>

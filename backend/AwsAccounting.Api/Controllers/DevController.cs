@@ -109,6 +109,30 @@ public class DevController(IWebHostEnvironment env, IPdfGridExtractor pdf) : Con
         });
     }
 
+    /// <summary>Dev: run native PDF extraction on a stored file and return the raw grid + detected mapping.</summary>
+    [HttpGet("pdf-inspect")]
+    public IActionResult PdfInspect([FromQuery] string path, [FromServices] IWebHostEnvironment e)
+    {
+        if (!env.IsDevelopment()) return NotFound();
+        var full = Path.IsPathRooted(path) ? path : Path.Combine(e.ContentRootPath, path);
+        if (!System.IO.File.Exists(full)) return NotFound(new { error = "not found", full });
+
+        var bytes = System.IO.File.ReadAllBytes(full);
+        var grid = PdfGridExtractor.ExtractNative(bytes);
+        var mapping = Mapper.AutoDetect(grid);
+        var gaps = Mapper.Gaps(mapping);
+        return Ok(new
+        {
+            rows = grid.Count,
+            cols = grid.Count > 0 ? grid[0].Length : 0,
+            headerRow = mapping.HeaderRow,
+            detectedHeader = grid.Count > mapping.HeaderRow ? grid[mapping.HeaderRow] : Array.Empty<string>(),
+            mapping = new { mapping.Columns, mapping.AmountMode },
+            gaps,
+            preview = grid.Skip(Math.Max(0, mapping.HeaderRow - 4)).Take(16).Select((r, i) => new { i = i + Math.Max(0, mapping.HeaderRow - 4), cells = r }).ToList(),
+        });
+    }
+
     /// <summary>
     /// Verifies the native PDF tier: render a ledger table to a (text-layer) PDF, then extract it
     /// back through <see cref="PdfGridExtractor"/> + the mapping layer and assert it is tabular.
@@ -144,8 +168,7 @@ public class DevController(IWebHostEnvironment env, IPdfGridExtractor pdf) : Con
 
         if (download) return File(bytes, "application/pdf", "sample-ledger.pdf");
 
-        var extracted = await pdf.ExtractAsync(bytes, "ledger.pdf", ct);
-        var grid = extracted!.Grid;
+        var grid = PdfGridExtractor.ExtractNative(bytes); // test native directly (PDFs are AI-first at runtime)
         var mapping = Mapper.AutoDetect(grid);
         var gaps = Mapper.Gaps(mapping);
         var lines = Mapper.Apply(grid, mapping, "statement");
@@ -158,7 +181,6 @@ public class DevController(IWebHostEnvironment env, IPdfGridExtractor pdf) : Con
             checks.Add(new { name, pass, actual });
         }
 
-        Assert("native tier used", extracted.Source == "pdf-native", extracted.Source);
         Assert("grid has header + 4 rows (>=5)", grid.Count >= 5, grid.Count);
         Assert("reference mapped", mapping.Col("reference") >= 0, mapping.Col("reference"));
         Assert("debit_credit mode", mapping.AmountMode == "debit_credit", mapping.AmountMode);
@@ -169,6 +191,6 @@ public class DevController(IWebHostEnvironment env, IPdfGridExtractor pdf) : Con
             .SequenceEqual(new[] { "INV-1001", "INV-1002", "INV-2001", "INV-3001" }),
             lines.Select(l => l.Reference).ToList());
 
-        return Ok(new { ok, source = extracted.Source, grid, mapping = new { mapping.Columns, mapping.AmountMode, mapping.HeaderRow }, checks });
+        return Ok(new { ok, source = "native", grid, mapping = new { mapping.Columns, mapping.AmountMode, mapping.HeaderRow }, checks });
     }
 }

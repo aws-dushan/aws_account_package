@@ -150,12 +150,50 @@ public sealed class AiClient(AppDbContext db, CryptoService crypto, IHttpClientF
     private static StringContent JsonBody(object body)
         => new(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");
 
+    // Retry transient failures (429 rate-limit, 5xx) with exponential backoff so a
+    // per-minute rate cap doesn't fail the whole run. Honours a Retry-After header when present.
     private static async Task<JsonDocument> SendJson(HttpClient http, HttpRequestMessage m, string provider, CancellationToken ct)
     {
-        var res = await http.SendAsync(m, ct);
-        if (!res.IsSuccessStatusCode) throw new HttpRequestException($"{provider} HTTP {(int)res.StatusCode}");
-        return await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        const int maxAttempts = 4;
+        for (int attempt = 1; ; attempt++)
+        {
+            using var req = await CloneAsync(m);
+            var res = await http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode)
+                return await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+
+            int code = (int)res.StatusCode;
+            bool transient = code == 429 || code == 503 || code == 500 || code == 502;
+            if (!transient || attempt >= maxAttempts)
+            {
+                var detail = await res.Content.ReadAsStringAsync(ct);
+                var hint = code == 429 ? " (rate-limited / quota — check the provider plan or switch provider in AI Settings)" : "";
+                throw new HttpRequestException($"{provider} HTTP {code}{hint}. {Trunc(detail, 300)}");
+            }
+
+            var delay = res.Headers.RetryAfter?.Delta
+                        ?? res.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow
+                        ?? TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))); // 2s, 4s, 8s…
+            if (delay < TimeSpan.Zero) delay = TimeSpan.FromSeconds(2);
+            await Task.Delay(delay, ct);
+        }
     }
+
+    /// <summary>HttpRequestMessage can only be sent once — clone it for each retry.</summary>
+    private static async Task<HttpRequestMessage> CloneAsync(HttpRequestMessage req)
+    {
+        var clone = new HttpRequestMessage(req.Method, req.RequestUri);
+        if (req.Content is not null)
+        {
+            var bytes = await req.Content.ReadAsByteArrayAsync();
+            clone.Content = new ByteArrayContent(bytes);
+            foreach (var h in req.Content.Headers) clone.Content.Headers.TryAddWithoutValidation(h.Key, h.Value);
+        }
+        foreach (var h in req.Headers) clone.Headers.TryAddWithoutValidation(h.Key, h.Value);
+        return clone;
+    }
+
+    private static string Trunc(string s, int n) => string.IsNullOrEmpty(s) ? "" : (s.Length <= n ? s : s[..n]);
 
     /// <summary>Strip ```json fences and isolate the outermost {...} object.</summary>
     private static string ExtractJson(string text)

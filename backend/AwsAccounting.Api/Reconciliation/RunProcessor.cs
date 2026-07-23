@@ -60,7 +60,19 @@ public sealed class RunProcessor(
 
         var gaps = Mapper.Gaps(s.Mapping).Concat(Mapper.Gaps(c.Mapping)).Distinct().ToList();
         if (gaps.Count > 0)
-            throw new InvalidOperationException($"Could not map required column(s): {string.Join(", ", gaps)}. Check the file headers.");
+        {
+            static string Head(IReadOnlyList<string[]> rows, ColumnMapping m)
+            {
+                if (rows.Count <= m.HeaderRow) return "(no header row found)";
+                var hs = (rows[m.HeaderRow] ?? []).Where(h => !string.IsNullOrWhiteSpace(h)).ToList();
+                return hs.Count == 0 ? "(empty)" : string.Join(", ", hs);
+            }
+            var diag = $"Statement headers seen: [{Head(statementRows, s.Mapping)}]. Customer headers seen: [{Head(customerRows, c.Mapping)}]";
+            log.LogWarning("Run {RunId} mapping gaps: {Gaps}. Statement={SRows} rows ({SSrc}), Customer={CRows} rows ({CSrc}). {Diag}",
+                runId, string.Join(",", gaps), statementRows.Count, s.Source, customerRows.Count, c.Source, diag);
+            throw new InvalidOperationException(
+                $"Could not map required column(s): {string.Join(", ", gaps)}. {diag}. Rename a column to something recognisable (e.g. \"Reference\", \"Invoice No\", \"Doc No\") or check the correct sheet/file was uploaded.");
+        }
 
         await SetStage(run, "Matching", ct);
         var sLines = Mapper.Apply(statementRows, s.Mapping, "statement");
