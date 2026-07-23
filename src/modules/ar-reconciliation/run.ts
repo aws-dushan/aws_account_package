@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import { ledgerLines, matches, matchLines, exceptions, reconciliationRuns } from "../../db/schema";
-import { autoDetectMapping, applyMapping, mappingGaps } from "./ledger-mapping";
+import { autoDetectMapping, applyMapping, mappingGaps, type ColumnMapping } from "./ledger-mapping";
 import { reconcile } from "./engine/engine";
 
 function toDate(s: string | null): string | null {
@@ -21,11 +21,14 @@ export async function executeRun(params: {
   statementRows: string[][];
   customerRows: string[][];
   periodEnd?: string | null;
+  /** Explicit mappings (from the confirm step). Falls back to auto-detection. */
+  statementMapping?: ColumnMapping;
+  customerMapping?: ColumnMapping;
 }) {
   const { runId, tenantId, statementRows, customerRows, periodEnd } = params;
 
-  const sMap = autoDetectMapping(statementRows);
-  const cMap = autoDetectMapping(customerRows);
+  const sMap = params.statementMapping ?? autoDetectMapping(statementRows);
+  const cMap = params.customerMapping ?? autoDetectMapping(customerRows);
   const gaps = [...new Set([...mappingGaps(sMap), ...mappingGaps(cMap)])];
   if (gaps.length) {
     throw new Error(`Could not map required column(s): ${gaps.join(", ")}. Check the file headers.`);

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { mkdir, writeFile, unlink, readFile } from "node:fs/promises";
 import path from "node:path";
 
 // Files live on a local volume (single-VPS). SHA-256 is stored permanently; the file
@@ -16,6 +16,10 @@ export async function saveUpload(tenantId: string, filename: string, buf: Buffer
   const storageKey = path.posix.join(tenantId, `${sha256.slice(0, 12)}-${safe}`);
   await writeFile(path.join(UPLOADS, storageKey), buf);
   return { sha256, storageKey, size: buf.length };
+}
+
+export async function readUpload(storageKey: string): Promise<Buffer> {
+  return readFile(path.join(UPLOADS, storageKey));
 }
 
 export async function deleteUpload(storageKey: string): Promise<void> {

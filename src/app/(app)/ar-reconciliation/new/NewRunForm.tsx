@@ -8,7 +8,7 @@ function Submit() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={pending}>
-      {pending ? "Reconciling…" : "Run reconciliation"}
+      {pending ? "Uploading…" : "Continue → confirm mapping"}
     </button>
   );
 }

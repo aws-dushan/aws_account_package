@@ -39,6 +39,7 @@ export default async function RunResults({ params }: { params: { runId: string }
 
   if (!run) notFound();
   if (!user.isSuperAdmin && run.tenantId !== user.tenantId) notFound();
+  if (run.status === "draft") redirect(`/ar-reconciliation/${run.id}/mapping`);
 
   const [{ n: lineCount } = { n: 0 }] = await db
     .select({ n: count() }).from(ledgerLines).where(eq(ledgerLines.runId, run.id));
