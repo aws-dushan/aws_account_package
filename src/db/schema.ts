@@ -101,7 +101,8 @@ export const reconciliationRuns = pgTable("reconciliation_runs", {
   id: uuid("id").defaultRandom().primaryKey(),
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 160 }).notNull(),
-  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft|running|completed|failed
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft|queued|running|completed|failed
+  stage: varchar("stage", { length: 40 }), // live progress label
   statementFileId: uuid("statement_file_id").references(() => files.id),
   customerFileId: uuid("customer_file_id").references(() => files.id),
   autoMatchPct: numeric("auto_match_pct", { precision: 5, scale: 2 }),

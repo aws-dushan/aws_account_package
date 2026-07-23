@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker": "tsx src/worker/index.ts",
     "lint": "next lint",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
@@ -18,10 +19,12 @@
     "mapping:check": "tsx scripts/mapping-check.ts"
   },
   "dependencies": {
+    "bullmq": "^5.80.11",
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
     "framer-motion": "11.11.9",
     "hash-wasm": "^4.12.0",
+    "ioredis": "^5.11.1",
     "next": "14.2.15",
     "next-auth": "^5.0.0-beta.32",
     "pg": "^8.22.0",

@@ -6,7 +6,9 @@ import { reconciliationRuns, exceptions, ledgerLines, matches, tenants } from "@
 import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { SEVERITY_ORDER } from "@/modules/ar-reconciliation/labels";
+import { RUN_STAGES } from "@/modules/ar-reconciliation/run";
 import ExceptionQueue from "./ExceptionQueue";
+import RunProgress from "./RunProgress";
 import styles from "../../app.module.css";
 
 const aed = (v: string | number | null) =>
@@ -25,6 +27,7 @@ export default async function RunResults({ params }: { params: { runId: string }
       id: reconciliationRuns.id,
       name: reconciliationRuns.name,
       status: reconciliationRuns.status,
+      stage: reconciliationRuns.stage,
       tenantId: reconciliationRuns.tenantId,
       autoMatchPct: reconciliationRuns.autoMatchPct,
       matchedValue: reconciliationRuns.matchedValue,
@@ -39,6 +42,22 @@ export default async function RunResults({ params }: { params: { runId: string }
 
   if (!run) notFound();
   if (!user.isSuperAdmin && run.tenantId !== user.tenantId) notFound();
+
+  // Still processing (async worker) — show the live stepper instead of results.
+  if (run.status === "running" || run.status === "queued") {
+    return (
+      <>
+        <div className={styles.pageHead}>
+          <div>
+            <div className={styles.eyebrow}>AR Reconciliation · Run</div>
+            <h1>{run.name}</h1>
+            <p>{run.company ?? ""}</p>
+          </div>
+        </div>
+        <RunProgress runId={run.id} stages={[...RUN_STAGES]} initialStage={run.stage} initialStatus={run.status} />
+      </>
+    );
+  }
 
   const [{ n: lineCount } = { n: 0 }] = await db
     .select({ n: count() }).from(ledgerLines).where(eq(ledgerLines.runId, run.id));

@@ -13,6 +13,13 @@ function toDate(s: string | null): string | null {
   return Number.isNaN(t) ? null : new Date(t).toISOString().slice(0, 10);
 }
 
+/** Reconciliation stages, in order — the UI stepper renders these. */
+export const RUN_STAGES = ["Reading files", "Resolving columns", "Matching", "Saving results", "Completed"] as const;
+
+async function setStage(runId: string, stage: string) {
+  await db.update(reconciliationRuns).set({ stage }).where(eq(reconciliationRuns.id, runId));
+}
+
 /**
  * Map both ledgers to canonical lines, reconcile, and persist the full result
  * (ledger_lines, matches, match_lines, exceptions) + run summary — in one transaction.
@@ -37,10 +44,12 @@ export async function executeRun(params: {
     throw new Error(`Could not map required column(s): ${gaps.join(", ")}. Check the file headers.`);
   }
 
+  await setStage(runId, "Matching");
   const sLines = applyMapping(statementRows, sMap, "statement");
   const cLines = applyMapping(customerRows, cMap, "customer");
   const result = reconcile(sLines, cLines, { amountTolerance: 1, fuzzyThreshold: 0.8, periodEnd });
 
+  await setStage(runId, "Saving results");
   await db.transaction(async (tx) => {
     const keyToId = new Map<string, string>();
     if (result.lines.length) {
@@ -118,6 +127,7 @@ export async function processRun(runId: string) {
   if (!run) throw new Error("Run not found.");
   if (!run.statementFileId || !run.customerFileId) throw new Error("Uploaded files are missing.");
 
+  await setStage(runId, "Reading files");
   const fileRows = await db.select({ id: files.id, storageKey: files.storageKey }).from(files).where(inArray(files.id, [run.statementFileId, run.customerFileId]));
   const sKey = fileRows.find((f) => f.id === run.statementFileId)?.storageKey;
   const cKey = fileRows.find((f) => f.id === run.customerFileId)?.storageKey;
@@ -126,6 +136,7 @@ export async function processRun(runId: string) {
   const statementRows = parseWorkbook(await readUpload(sKey));
   const customerRows = parseWorkbook(await readUpload(cKey));
 
+  await setStage(runId, "Resolving columns");
   const s = await resolveMapping(run.tenantId, statementRows, "statement");
   const c = await resolveMapping(run.tenantId, customerRows, "customer");
 
@@ -138,5 +149,6 @@ export async function processRun(runId: string) {
     customerMapping: c.mapping,
   });
 
+  await setStage(runId, "Completed");
   return { summary, mappingSource: { statement: s.source, customer: c.source } };
 }

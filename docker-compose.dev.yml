@@ -13,8 +13,27 @@ services:
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/aws_account_platform
+      - REDIS_URL=redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+
+  worker:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run worker"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/aws_account_platform
+      - REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
 
   redis:
     image: redis:7-alpine

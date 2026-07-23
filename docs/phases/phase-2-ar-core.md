@@ -12,7 +12,10 @@ This is the first client-showable build.
       signed amount), the user can confirm/override, and profiles are saved per counterparty.
       The **matching engine stays format-agnostic** (operates on canonical lines). *(mapping +
       engine built & self-checked: `npm run engine:check`)*
-- [ ] **Worker + BullMQ + Redis**; live progress via **SSE**
+- [x] **Worker + BullMQ + Redis**; live progress via **SSE** — with a synchronous
+      fallback when `REDIS_URL` is unset. Runs emit stages (Reading files → Resolving
+      columns → Matching → Saving → Completed); the results page shows a live stepper.
+      Run the worker with `npm run worker`.
 - [ ] Reconciliation pipeline:
   - Stage 1 Intake · Stage 2 Parse & cleanse (SheetJS → canonical schema)
   - Stage 3 Internal reversal netting

@@ -99,6 +99,19 @@
 @keyframes slideIn{from{transform:translateX(30px); opacity:.4}to{transform:none; opacity:1}}
 @media (prefers-reduced-motion:reduce){.drawerOverlay,.drawer{animation:none}}
 
+/* run progress stepper */
+.stepper{display:flex; flex-direction:column; gap:2px}
+.step{display:flex; align-items:center; gap:13px; padding:9px 0}
+.stepDot{width:27px; height:27px; border-radius:50%; display:grid; place-items:center; font-size:12px;
+  font-weight:700; flex:none; border:2px solid var(--hair); color:var(--muted); background:var(--surface); transition:.25s}
+.stepLabel{font-size:14px; color:var(--ink-2)}
+.stepDone .stepDot{background:var(--g-ink); border-color:var(--g-ink); color:#fff}
+.stepDone .stepLabel{color:var(--ink)}
+.stepActive .stepDot{border-color:var(--brand); color:var(--brand); animation:stepPulse 1.3s ease-in-out infinite}
+.stepActive .stepLabel{color:var(--ink); font-weight:700}
+@keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--brand) 45%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
+@media (prefers-reduced-motion:reduce){.stepActive .stepDot{animation:none}}
+
 /* KPI tiles */
 .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px}
 .kpi{background:var(--card); border:1px solid var(--hair); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden}

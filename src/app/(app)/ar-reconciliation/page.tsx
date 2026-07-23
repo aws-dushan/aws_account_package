@@ -10,6 +10,7 @@ import styles from "../app.module.css";
 const STATUS_CLASS: Record<string, string> = {
   completed: styles.badgeOk,
   running: styles.badgeAdmin,
+  queued: styles.badgeAdmin,
   failed: styles.sevR,
   draft: styles.badgeOff,
 };

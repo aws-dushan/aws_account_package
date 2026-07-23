@@ -9,6 +9,7 @@ import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { saveUpload } from "@/lib/storage";
+import { isQueueEnabled, enqueueReconcile } from "@/lib/queue";
 import { processRun } from "@/modules/ar-reconciliation/run";
 
 export type FormState = { error?: string };
@@ -68,14 +69,21 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
       .returning({ id: files.id });
     await db.update(reconciliationRuns).set({ statementFileId: sFile.id, customerFileId: cFile.id }).where(eq(reconciliationRuns.id, run.id));
 
-    const { summary } = await processRun(run.id);
-    await writeAudit({
-      action: "reconciliation.run",
-      entity: "reconciliation_run",
-      entityId: run.id,
-      tenantId,
-      metadata: { name, autoMatchPct: summary.autoMatchPct, exceptions: summary.exceptionCount },
-    });
+    if (isQueueEnabled()) {
+      // Background: the worker picks it up; the results page shows live progress.
+      await db.update(reconciliationRuns).set({ status: "queued", stage: "Queued" }).where(eq(reconciliationRuns.id, run.id));
+      await enqueueReconcile(run.id);
+    } else {
+      // Synchronous fallback (no Redis configured).
+      const { summary } = await processRun(run.id);
+      await writeAudit({
+        action: "reconciliation.run",
+        entity: "reconciliation_run",
+        entityId: run.id,
+        tenantId,
+        metadata: { name, autoMatchPct: summary.autoMatchPct, exceptions: summary.exceptionCount },
+      });
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Reconciliation failed.";
     await db.update(reconciliationRuns).set({ status: "failed", error: message }).where(eq(reconciliationRuns.id, run.id));
