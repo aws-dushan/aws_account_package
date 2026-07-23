@@ -99,6 +99,12 @@
 @keyframes slideIn{from{transform:translateX(30px); opacity:.4}to{transform:none; opacity:1}}
 @media (prefers-reduced-motion:reduce){.drawerOverlay,.drawer{animation:none}}
 
+/* loading skeletons */
+.skel{background:linear-gradient(90deg, var(--hair) 25%, color-mix(in srgb,var(--hair) 45%, var(--surface)) 37%, var(--hair) 63%);
+  background-size:400% 100%; border-radius:8px; animation:shimmer 1.4s ease infinite; display:block}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
 /* run progress stepper */
 .stepper{display:flex; flex-direction:column; gap:2px}
 .step{display:flex; align-items:center; gap:13px; padding:9px 0}

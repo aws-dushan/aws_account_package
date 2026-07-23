@@ -117,9 +117,10 @@ export default async function RunResults({ params }: { params: { runId: string }
         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
           {(canApprove || canAdjust) && exRows.length > 0 && <AiInsightsButton runId={run.id} />}
           {canExport && run.status === "completed" && (
-            <a href={`/ar-reconciliation/${run.id}/export`} className={`${styles.btn} ${styles.btnPrimary}`}>
-              ⭳ Export Excel
-            </a>
+            <>
+              <a href={`/ar-reconciliation/${run.id}/export/pdf`} className={styles.btn}>⭳ PDF</a>
+              <a href={`/ar-reconciliation/${run.id}/export`} className={`${styles.btn} ${styles.btnPrimary}`}>⭳ Excel</a>
+            </>
           )}
         </div>
       </div>
