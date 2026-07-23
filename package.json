@@ -14,7 +14,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
     "engine:check": "tsx scripts/engine-check.ts",
-    "run:check": "tsx scripts/run-check.ts"
+    "run:check": "tsx scripts/run-check.ts",
+    "mapping:check": "tsx scripts/mapping-check.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

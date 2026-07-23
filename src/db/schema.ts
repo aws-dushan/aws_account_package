@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb, integer, date, unique } from "drizzle-orm/pg-core";
 
 /**
  * Tenants = companies. The platform is multi-tenant: each company has its own
@@ -170,6 +170,26 @@ export const exceptions = pgTable("exceptions", {
   resolutionNote: text("resolution_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Learned column mappings. Keyed by a fingerprint of the ledger's headers, per
+ * tenant — so once a format is mapped (auto or AI), the system reuses it and the
+ * mapping improves over time. No user confirmation required.
+ */
+export const ledgerMappings = pgTable(
+  "ledger_mappings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+    side: varchar("side", { length: 12 }),
+    mapping: jsonb("mapping").notNull(),
+    source: varchar("source", { length: 8 }).notNull().default("auto"), // auto | ai | manual
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ uniq: unique().on(t.tenantId, t.fingerprint) }),
+);
 
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;

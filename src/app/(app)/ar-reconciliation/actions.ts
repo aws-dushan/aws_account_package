@@ -1,17 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { reconciliationRuns, files, tenants, exceptions } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
-import { saveUpload, readUpload } from "@/lib/storage";
-import { parseWorkbook } from "@/lib/xlsx";
-import { executeRun } from "@/modules/ar-reconciliation/run";
-import type { ColumnMapping } from "@/modules/ar-reconciliation/ledger-mapping";
+import { saveUpload } from "@/lib/storage";
+import { processRun } from "@/modules/ar-reconciliation/run";
 
 export type FormState = { error?: string };
 
@@ -51,10 +49,10 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
     if (f.buf.length > MAX_BYTES) return { error: "Each file must be under 15 MB." };
   }
 
-  // Create a draft run + store the files, then send the user to confirm the mapping.
+  // Create the run, store the files, then reconcile (mapping is resolved automatically).
   const [run] = await db
     .insert(reconciliationRuns)
-    .values({ tenantId, name, status: "draft", createdBy: user.id })
+    .values({ tenantId, name, status: "running", createdBy: user.id })
     .returning({ id: reconciliationRuns.id });
 
   try {
@@ -69,53 +67,14 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
       .values({ tenantId, kind: "customer", originalName: customer.name, sizeBytes: cSaved.size, sha256: cSaved.sha256, storageKey: cSaved.storageKey, uploadedBy: user.id })
       .returning({ id: files.id });
     await db.update(reconciliationRuns).set({ statementFileId: sFile.id, customerFileId: cFile.id }).where(eq(reconciliationRuns.id, run.id));
-  } catch {
-    await db.update(reconciliationRuns).set({ status: "failed", error: "Upload failed." }).where(eq(reconciliationRuns.id, run.id));
-    return { error: "Could not save the uploaded files." };
-  }
 
-  redirect(`/ar-reconciliation/${run.id}/mapping`);
-}
-
-export async function confirmMapping(input: {
-  runId: string;
-  statement: ColumnMapping;
-  customer: ColumnMapping;
-}): Promise<{ error?: string }> {
-  const user = await currentUser();
-  if (!user) return { error: "Not signed in." };
-  if (!(await can(user, "ar-reconciliation.run.create"))) return { error: "No permission." };
-
-  const [run] = await db
-    .select({ id: reconciliationRuns.id, tenantId: reconciliationRuns.tenantId, statementFileId: reconciliationRuns.statementFileId, customerFileId: reconciliationRuns.customerFileId })
-    .from(reconciliationRuns)
-    .where(eq(reconciliationRuns.id, input.runId))
-    .limit(1);
-  if (!run) return { error: "Run not found." };
-  if (!user.isSuperAdmin && run.tenantId !== user.tenantId) return { error: "Not allowed." };
-  if (!run.statementFileId || !run.customerFileId) return { error: "Uploaded files are missing." };
-
-  const fileRows = await db.select({ id: files.id, storageKey: files.storageKey }).from(files).where(inArray(files.id, [run.statementFileId, run.customerFileId]));
-  const sKey = fileRows.find((f) => f.id === run.statementFileId)?.storageKey;
-  const cKey = fileRows.find((f) => f.id === run.customerFileId)?.storageKey;
-  if (!sKey || !cKey) return { error: "Uploaded files are no longer available." };
-
-  await db.update(reconciliationRuns).set({ status: "running" }).where(eq(reconciliationRuns.id, run.id));
-  try {
-    const summary = await executeRun({
-      runId: run.id,
-      tenantId: run.tenantId,
-      statementRows: parseWorkbook(await readUpload(sKey)),
-      customerRows: parseWorkbook(await readUpload(cKey)),
-      statementMapping: input.statement,
-      customerMapping: input.customer,
-    });
+    const { summary } = await processRun(run.id);
     await writeAudit({
       action: "reconciliation.run",
       entity: "reconciliation_run",
       entityId: run.id,
-      tenantId: run.tenantId,
-      metadata: { autoMatchPct: summary.autoMatchPct, exceptions: summary.exceptionCount },
+      tenantId,
+      metadata: { name, autoMatchPct: summary.autoMatchPct, exceptions: summary.exceptionCount },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Reconciliation failed.";

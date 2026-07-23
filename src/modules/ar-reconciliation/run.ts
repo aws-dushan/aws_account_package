@@ -1,8 +1,11 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { ledgerLines, matches, matchLines, exceptions, reconciliationRuns } from "../../db/schema";
+import { ledgerLines, matches, matchLines, exceptions, reconciliationRuns, files } from "../../db/schema";
 import { autoDetectMapping, applyMapping, mappingGaps, type ColumnMapping } from "./ledger-mapping";
 import { reconcile } from "./engine/engine";
+import { resolveMapping } from "./mapping-resolver";
+import { readUpload } from "../../lib/storage";
+import { parseWorkbook } from "../../lib/xlsx";
 
 function toDate(s: string | null): string | null {
   if (!s) return null;
@@ -100,4 +103,40 @@ export async function executeRun(params: {
   });
 
   return result.summary;
+}
+
+/**
+ * Full job for a stored run: read its files, resolve column mappings without user
+ * confirmation (learned → auto → AI), then reconcile + persist.
+ */
+export async function processRun(runId: string) {
+  const [run] = await db
+    .select({ tenantId: reconciliationRuns.tenantId, statementFileId: reconciliationRuns.statementFileId, customerFileId: reconciliationRuns.customerFileId })
+    .from(reconciliationRuns)
+    .where(eq(reconciliationRuns.id, runId))
+    .limit(1);
+  if (!run) throw new Error("Run not found.");
+  if (!run.statementFileId || !run.customerFileId) throw new Error("Uploaded files are missing.");
+
+  const fileRows = await db.select({ id: files.id, storageKey: files.storageKey }).from(files).where(inArray(files.id, [run.statementFileId, run.customerFileId]));
+  const sKey = fileRows.find((f) => f.id === run.statementFileId)?.storageKey;
+  const cKey = fileRows.find((f) => f.id === run.customerFileId)?.storageKey;
+  if (!sKey || !cKey) throw new Error("Uploaded files are no longer available.");
+
+  const statementRows = parseWorkbook(await readUpload(sKey));
+  const customerRows = parseWorkbook(await readUpload(cKey));
+
+  const s = await resolveMapping(run.tenantId, statementRows, "statement");
+  const c = await resolveMapping(run.tenantId, customerRows, "customer");
+
+  const summary = await executeRun({
+    runId,
+    tenantId: run.tenantId,
+    statementRows,
+    customerRows,
+    statementMapping: s.mapping,
+    customerMapping: c.mapping,
+  });
+
+  return { summary, mappingSource: { statement: s.source, customer: c.source } };
 }
