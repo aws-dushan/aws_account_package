@@ -9,6 +9,7 @@ import { SEVERITY_ORDER } from "@/modules/ar-reconciliation/labels";
 import { RUN_STAGES } from "@/modules/ar-reconciliation/run";
 import ExceptionQueue from "./ExceptionQueue";
 import RunProgress from "./RunProgress";
+import AiInsightsButton from "./AiInsightsButton";
 import styles from "../../app.module.css";
 
 const aed = (v: string | number | null) =>
@@ -72,6 +73,9 @@ export default async function RunResults({ params }: { params: { runId: string }
       amount: exceptions.amount,
       status: exceptions.status,
       note: exceptions.resolutionNote,
+      aiExplanation: exceptions.aiExplanation,
+      aiRecommendation: exceptions.aiRecommendation,
+      aiModel: exceptions.aiModel,
       reference: ledgerLines.reference,
       description: ledgerLines.description,
       side: ledgerLines.side,
@@ -92,6 +96,9 @@ export default async function RunResults({ params }: { params: { runId: string }
     amount: e.amount,
     status: e.status,
     note: e.note,
+    aiExplanation: e.aiExplanation,
+    aiRecommendation: e.aiRecommendation,
+    aiModel: e.aiModel,
   }));
 
   return (
@@ -107,11 +114,14 @@ export default async function RunResults({ params }: { params: { runId: string }
             {run.createdAt.toISOString().slice(0, 16).replace("T", " ")}
           </p>
         </div>
-        {canExport && run.status === "completed" && (
-          <a href={`/ar-reconciliation/${run.id}/export`} className={`${styles.btn} ${styles.btnPrimary}`}>
-            ⭳ Export Excel
-          </a>
-        )}
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          {(canApprove || canAdjust) && exRows.length > 0 && <AiInsightsButton runId={run.id} />}
+          {canExport && run.status === "completed" && (
+            <a href={`/ar-reconciliation/${run.id}/export`} className={`${styles.btn} ${styles.btnPrimary}`}>
+              ⭳ Export Excel
+            </a>
+          )}
+        </div>
       </div>
 
       {run.status === "failed" ? (

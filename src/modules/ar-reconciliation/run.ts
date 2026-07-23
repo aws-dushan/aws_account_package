@@ -4,6 +4,7 @@ import { ledgerLines, matches, matchLines, exceptions, reconciliationRuns, files
 import { autoDetectMapping, applyMapping, mappingGaps, type ColumnMapping } from "./ledger-mapping";
 import { reconcile } from "./engine/engine";
 import { resolveMapping } from "./mapping-resolver";
+import { generateExceptionInsights } from "./ai-enrich";
 import { readUpload } from "../../lib/storage";
 import { parseWorkbook } from "../../lib/xlsx";
 
@@ -14,7 +15,7 @@ function toDate(s: string | null): string | null {
 }
 
 /** Reconciliation stages, in order — the UI stepper renders these. */
-export const RUN_STAGES = ["Reading files", "Resolving columns", "Matching", "Saving results", "Completed"] as const;
+export const RUN_STAGES = ["Reading files", "Resolving columns", "Matching", "Saving results", "AI insights", "Completed"] as const;
 
 async function setStage(runId: string, stage: string) {
   await db.update(reconciliationRuns).set({ stage }).where(eq(reconciliationRuns.id, runId));
@@ -148,6 +149,14 @@ export async function processRun(runId: string) {
     statementMapping: s.mapping,
     customerMapping: c.mapping,
   });
+
+  // Stage 6 — AI commentary (best-effort; skipped when AI isn't configured).
+  try {
+    await setStage(runId, "AI insights");
+    await generateExceptionInsights(runId);
+  } catch {
+    /* AI optional — do not fail the run */
+  }
 
   await setStage(runId, "Completed");
   return { summary, mappingSource: { statement: s.source, customer: c.source } };

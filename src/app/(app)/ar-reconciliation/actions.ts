@@ -10,7 +10,9 @@ import { can } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { saveUpload } from "@/lib/storage";
 import { isQueueEnabled, enqueueReconcile } from "@/lib/queue";
+import { AiNotConfiguredError } from "@/lib/ai";
 import { processRun } from "@/modules/ar-reconciliation/run";
+import { generateExceptionInsights } from "@/modules/ar-reconciliation/ai-enrich";
 
 export type FormState = { error?: string };
 
@@ -91,6 +93,25 @@ export async function createRun(_prev: FormState, fd: FormData): Promise<FormSta
   }
 
   redirect(`/ar-reconciliation/${run.id}`);
+}
+
+export async function generateInsights(runId: string): Promise<{ ok?: boolean; error?: string }> {
+  const user = await currentUser();
+  if (!user) return { error: "Not signed in." };
+  const [run] = await db.select({ tenantId: reconciliationRuns.tenantId }).from(reconciliationRuns).where(eq(reconciliationRuns.id, runId)).limit(1);
+  if (!run) return { error: "Run not found." };
+  if (!user.isSuperAdmin && run.tenantId !== user.tenantId) return { error: "Not allowed." };
+  if (!(await can(user, "ar-reconciliation.view"))) return { error: "No permission." };
+
+  try {
+    const n = await generateExceptionInsights(runId);
+    await writeAudit({ action: "reconciliation.ai_insights", entity: "reconciliation_run", entityId: runId, tenantId: run.tenantId, metadata: { count: n } });
+    revalidatePath(`/ar-reconciliation/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof AiNotConfiguredError) return { error: "Configure a reasoning model in Admin → AI Settings first." };
+    return { error: "AI insight generation failed. Check the AI provider configuration." };
+  }
 }
 
 export type ExceptionStatus = "open" | "approved" | "adjusted" | "resolved";
