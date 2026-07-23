@@ -55,7 +55,7 @@ builder.Services.AddSingleton<AwsAccounting.Api.Services.CryptoService>();
 builder.Services.AddScoped<AwsAccounting.Api.Services.AiClient>();
 builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.MappingResolver>();
 builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IAiMappingIdentifier, AwsAccounting.Api.Reconciliation.AiMappingIdentifier>();
-builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IPdfGridExtractor, AwsAccounting.Api.Reconciliation.NullPdfGridExtractor>();
+builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IPdfGridExtractor, AwsAccounting.Api.Reconciliation.PdfGridExtractor>();
 builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.GridExtractor>();
 builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.IAiEnricher, AwsAccounting.Api.Reconciliation.AiEnricher>();
 builder.Services.AddScoped<AwsAccounting.Api.Reconciliation.RunProcessor>();

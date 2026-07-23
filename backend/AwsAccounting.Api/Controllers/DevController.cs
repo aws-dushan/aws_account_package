@@ -1,5 +1,7 @@
 using AwsAccounting.Api.Reconciliation;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
 
 namespace AwsAccounting.Api.Controllers;
 
@@ -10,7 +12,7 @@ namespace AwsAccounting.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/dev")]
-public class DevController(IWebHostEnvironment env) : ControllerBase
+public class DevController(IWebHostEnvironment env, IPdfGridExtractor pdf) : ControllerBase
 {
     [HttpGet("selfcheck")]
     public IActionResult SelfCheck()
@@ -105,5 +107,68 @@ public class DevController(IWebHostEnvironment env) : ControllerBase
             total = checks.Count,
             checks,
         });
+    }
+
+    /// <summary>
+    /// Verifies the native PDF tier: render a ledger table to a (text-layer) PDF, then extract it
+    /// back through <see cref="PdfGridExtractor"/> + the mapping layer and assert it is tabular.
+    /// </summary>
+    [HttpGet("pdf-selfcheck")]
+    public async Task<IActionResult> PdfSelfCheck(CancellationToken ct, [FromQuery] bool download = false)
+    {
+        if (!env.IsDevelopment()) return NotFound();
+
+        string[] headers = ["Reference", "Date", "Description", "Debit", "Credit"];
+        string[][] rows =
+        [
+            ["INV-1001", "2026-01-05", "Sales", "1000.00", ""],
+            ["INV-1002", "2026-01-06", "Sales", "1500.00", ""],
+            ["INV-2001", "2026-01-11", "Sales", "1200.00", ""],
+            ["INV-3001", "2026-01-13", "Sales", "400.00", ""],
+        ];
+
+        var bytes = Document.Create(c => c.Page(p =>
+        {
+            p.Size(PageSizes.A4);
+            p.Margin(24);
+            p.DefaultTextStyle(t => t.FontSize(10));
+            p.Content().Table(table =>
+            {
+                table.ColumnsDefinition(cd => { cd.RelativeColumn(2); cd.RelativeColumn(2); cd.RelativeColumn(3); cd.RelativeColumn(2); cd.RelativeColumn(2); });
+                foreach (var h in headers) table.Cell().PaddingVertical(4).PaddingRight(16).Text(h).Bold();
+                foreach (var row in rows)
+                    foreach (var cell in row)
+                        table.Cell().PaddingVertical(4).PaddingRight(16).Text(cell);
+            });
+        })).GeneratePdf();
+
+        if (download) return File(bytes, "application/pdf", "sample-ledger.pdf");
+
+        var extracted = await pdf.ExtractAsync(bytes, "ledger.pdf", ct);
+        var grid = extracted!.Grid;
+        var mapping = Mapper.AutoDetect(grid);
+        var gaps = Mapper.Gaps(mapping);
+        var lines = Mapper.Apply(grid, mapping, "statement");
+
+        var checks = new List<object>();
+        bool ok = true;
+        void Assert(string name, bool pass, object? actual = null)
+        {
+            ok &= pass;
+            checks.Add(new { name, pass, actual });
+        }
+
+        Assert("native tier used", extracted.Source == "pdf-native", extracted.Source);
+        Assert("grid has header + 4 rows (>=5)", grid.Count >= 5, grid.Count);
+        Assert("reference mapped", mapping.Col("reference") >= 0, mapping.Col("reference"));
+        Assert("debit_credit mode", mapping.AmountMode == "debit_credit", mapping.AmountMode);
+        Assert("no mapping gaps", gaps.Count == 0, gaps);
+        Assert("4 data lines parsed", lines.Count == 4, lines.Count);
+        Assert("first line debit 1000", lines.Count > 0 && lines[0].Debit == 1000m, lines.FirstOrDefault()?.Debit);
+        Assert("references round-tripped", lines.Count == 4 && lines.Select(l => l.Reference).OrderBy(x => x)
+            .SequenceEqual(new[] { "INV-1001", "INV-1002", "INV-2001", "INV-3001" }),
+            lines.Select(l => l.Reference).ToList());
+
+        return Ok(new { ok, source = extracted.Source, grid, mapping = new { mapping.Columns, mapping.AmountMode, mapping.HeaderRow }, checks });
     }
 }

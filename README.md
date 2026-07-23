@@ -4,13 +4,14 @@ Modular accounting platform for **AWS Distribution**. Module #1: **AR Reconcilia
 System name TBD. See [docs/DEVELOPMENT-PLAN.md](./docs/DEVELOPMENT-PLAN.md).
 
 > **Status:** the backend is now **ASP.NET Core (.NET 10)**; the Next.js app is a pure
-> frontend that calls it over HTTP/JSON. **Backend P0–P2 complete**: auth (Identity + JWT),
-> the admin console API (companies/users/permissions/AI-settings/audit), and the full
-> **AR Reconciliation core** — upload → learned column mapping → deterministic engine →
-> persisted results → colour-coded **Excel + PDF** export, run on a background worker.
-> AI enrichment (P3) and PDF ingestion (P4) are wired as pluggable hooks, next to be ported.
-> The React UI (login, shell, admin, results, exports, animations) is built and is being
-> rewired from the old TypeScript backend to the .NET API.
+> frontend that calls it over HTTP/JSON. **Backend P0–P4 complete**: auth (Identity + JWT),
+> the admin console API (companies/users/permissions/AI-settings/audit), the full
+> **AR Reconciliation core** (upload → learned column mapping → deterministic engine →
+> persisted results → colour-coded **Excel + PDF** export, on a background worker), the
+> **AI layer** (match-rescue + commentary on rule-failures only), and **PDF ingestion**
+> (native → vision, learning formats like Excel). Next: P5 polish + wiring the Next.js
+> frontend to the API, then P6 (VPS handover). The React UI (login, shell, admin, results,
+> exports, animations) is built and is being rewired to the .NET API.
 
 ## Architecture
 

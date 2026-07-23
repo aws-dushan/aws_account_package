@@ -1,12 +1,14 @@
 # Phase 4 — Ingestion: PDF + OCR
 
-> **Status: ⏳ .NET port pending.** Complete in the **TypeScript reference** (`src/lib/pdf.ts`,
-> `extractGrid`). On the .NET backend, `GridExtractor` handles Excel/CSV today and delegates
-> PDFs to a pluggable **`IPdfGridExtractor`** hook; the `NullPdfGridExtractor` currently
-> declines with a clear "arrives in Phase 4" message. P4 = port the tiers with C# libraries
-> (**UglyToad.PdfPig** native text; the configured vision model for scans). The extracted grid
-> **already flows through the same `MappingResolver`**, so PDFs will learn formats exactly like
-> Excel. The `[x]` items below track the TS reference, not the .NET port.
+> **Status: ✅ done (.NET API).** `PdfGridExtractor` (impl `IPdfGridExtractor`, in
+> `Reconciliation/`) does **Tier 1 native** via **UglyToad.PdfPig** (word positions → line
+> grouping by y → x-cluster columns → grid) and **Tier 2 vision** via
+> `AiClient.ExtractPdfTableAsync` (Anthropic/Google read the PDF natively). Tier 3 Tesseract
+> stays deferred to P6 infra → falls back to native-partial. The grid flows through the **same
+> `MappingResolver`**, so **PDFs learn formats exactly like Excel**. Verified: dev
+> `GET /api/dev/pdf-selfcheck` round-trips a rendered ledger PDF (8/8), and a full run with a
+> **PDF statement + CSV customer** completed (2 R, plus D/E/F → 50% / 2500.00). The vision tier
+> needs a valid AI key to exercise live (same path proven reachable in P3).
 
 **Goal:** Accept PDFs and scanned documents through a tiered extraction pipeline.
 
