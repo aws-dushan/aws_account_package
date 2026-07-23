@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { db } from "./db";
-import { tenants, users } from "./db/schema";
+import { tenants, users, auditLog } from "./db/schema";
 import { verifyPassword } from "./lib/password";
 
 const credentialsSchema = z.object({
@@ -14,6 +14,22 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  events: {
+    async signIn({ user }) {
+      const u = user as { id?: string; username?: string };
+      try {
+        await db.insert(auditLog).values({
+          actorUserId: u.id ?? null,
+          actorUsername: u.username ?? null,
+          action: "auth.login",
+          entity: "user",
+          entityId: u.id ?? null,
+        });
+      } catch (e) {
+        console.error("login audit failed:", e);
+      }
+    },
+  },
   providers: [
     Credentials({
       credentials: { username: {}, password: {} },

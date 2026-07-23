@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tenants } from "@/db/schema";
 import { currentUser } from "@/lib/session";
+import { writeAudit } from "@/lib/audit";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -25,7 +26,8 @@ export async function createCompany(_prev: FormState, fd: FormData): Promise<For
   const [exists] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
   if (exists) return { error: `A company with the slug "${slug}" already exists.` };
 
-  await db.insert(tenants).values({ name, slug });
+  const [created] = await db.insert(tenants).values({ name, slug }).returning({ id: tenants.id });
+  await writeAudit({ action: "company.create", entity: "tenant", entityId: created.id, metadata: { name, slug } });
   revalidatePath("/admin/companies");
   revalidatePath("/admin/users");
   return { ok: `Created company "${name}".` };
@@ -35,5 +37,6 @@ export async function setCompanyActive(id: string, isActive: boolean): Promise<v
   const user = await currentUser();
   if (!user?.isSuperAdmin) return;
   await db.update(tenants).set({ isActive }).where(eq(tenants.id, id));
+  await writeAudit({ action: isActive ? "company.enable" : "company.disable", entity: "tenant", entityId: id });
   revalidatePath("/admin/companies");
 }

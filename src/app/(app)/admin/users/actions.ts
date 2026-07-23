@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { users, userPermissions } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/password";
+import { writeAudit } from "@/lib/audit";
 import { isValidPermissionKey } from "@/modules/registry";
 
 export type FormState = { error?: string; ok?: string; tempPassword?: string };
@@ -35,14 +36,25 @@ export async function createUser(_prev: FormState, fd: FormData): Promise<FormSt
 
   const isPlatform = assignment === PLATFORM;
   const pw = tempPassword();
-  await db.insert(users).values({
-    username,
-    displayName,
+  const [created] = await db
+    .insert(users)
+    .values({
+      username,
+      displayName,
+      tenantId: isPlatform ? null : assignment,
+      isAdmin: isPlatform, // platform account = ERP-team super-admin
+      isActive: true,
+      mustChangePassword: true,
+      passwordHash: await hashPassword(pw),
+    })
+    .returning({ id: users.id });
+
+  await writeAudit({
+    action: "user.create",
+    entity: "user",
+    entityId: created.id,
     tenantId: isPlatform ? null : assignment,
-    isAdmin: isPlatform, // platform account = ERP-team super-admin
-    isActive: true,
-    mustChangePassword: true,
-    passwordHash: await hashPassword(pw),
+    metadata: { username, scope: isPlatform ? "platform-admin" : "company-user" },
   });
 
   revalidatePath("/admin/users");
@@ -54,6 +66,7 @@ export async function setUserActive(id: string, isActive: boolean): Promise<void
   if (!admin?.isSuperAdmin) return;
   if (admin.id === id) return; // don't disable yourself
   await db.update(users).set({ isActive }).where(eq(users.id, id));
+  await writeAudit({ action: isActive ? "user.enable" : "user.disable", entity: "user", entityId: id });
   revalidatePath("/admin/users");
 }
 
@@ -67,6 +80,7 @@ export async function resetUserPassword(_prev: FormState, fd: FormData): Promise
     .update(users)
     .set({ passwordHash: await hashPassword(pw), mustChangePassword: true })
     .where(eq(users.id, userId));
+  await writeAudit({ action: "user.reset_password", entity: "user", entityId: userId });
   return { ok: "Temporary password set.", tempPassword: pw };
 }
 
@@ -86,6 +100,12 @@ export async function setUserPermissions(_prev: FormState, fd: FormData): Promis
     }
   });
 
+  await writeAudit({
+    action: "user.permissions.set",
+    entity: "user",
+    entityId: userId,
+    metadata: { count: unique.length, keys: unique },
+  });
   revalidatePath(`/admin/users/${userId}`);
   return { ok: `Saved ${unique.length} permission${unique.length === 1 ? "" : "s"}.` };
 }

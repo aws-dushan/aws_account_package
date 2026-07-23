@@ -21,13 +21,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ];
   if (moduleItems.length) sections.push({ title: "Modules", items: moduleItems });
   if (user.isAdmin) {
-    sections.push({
-      title: "Administration",
-      items: [
-        { href: "/admin/companies", label: "Companies" },
-        { href: "/admin/users", label: "Users" },
-      ],
-    });
+    const adminItems = [
+      { href: "/admin/companies", label: "Companies" },
+      { href: "/admin/users", label: "Users" },
+    ];
+    if (user.isSuperAdmin) {
+      adminItems.push({ href: "/admin/ai-settings", label: "AI Settings" });
+      adminItems.push({ href: "/admin/audit", label: "Audit Log" });
+    }
+    sections.push({ title: "Administration", items: adminItems });
   }
 
   return (

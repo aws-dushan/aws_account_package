@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, boolean, timestamp, primaryKey, text, numeric, jsonb } from "drizzle-orm/pg-core";
 
 /**
  * Tenants = companies. The platform is multi-tenant: each company has its own
@@ -45,6 +45,41 @@ export const userPermissions = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.userId, t.permissionKey] }) }),
 );
 
+/**
+ * AI provider configuration, one row per purpose ("reasoning" | "vision").
+ * Platform-global (configured by the ERP-team super-admin). API keys are stored
+ * AES-256-GCM encrypted (never in plaintext). Per-tenant AI config is a future option.
+ */
+export const aiSettings = pgTable("ai_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  purpose: varchar("purpose", { length: 20 }).notNull().unique(), // reasoning | vision
+  provider: varchar("provider", { length: 20 }).notNull(), // google | anthropic | openai | azure
+  model: varchar("model", { length: 120 }).notNull(),
+  apiKeyEnc: text("api_key_enc"), // AES-256-GCM ciphertext (base64), nullable until set
+  baseUrl: varchar("base_url", { length: 255 }), // for Azure / custom endpoints
+  temperature: numeric("temperature", { precision: 3, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Append-only audit trail. No FK to users (records survive user deletion). Captures
+ * who did what, to which entity, optionally within which tenant, plus structured metadata.
+ */
+export const auditLog = pgTable("audit_log", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  actorUserId: uuid("actor_user_id"),
+  actorUsername: varchar("actor_username", { length: 64 }),
+  action: varchar("action", { length: 64 }).notNull(),
+  entity: varchar("entity", { length: 64 }),
+  entityId: varchar("entity_id", { length: 120 }),
+  tenantId: uuid("tenant_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type AiSetting = typeof aiSettings.$inferSelect;
+export type AuditEntry = typeof auditLog.$inferSelect;
 
