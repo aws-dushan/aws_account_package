@@ -1,34 +1,31 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { tenants, users } from "@/db/schema";
-import { getUserPermissionKeys } from "@/lib/permissions";
+import { apiGetOrNull } from "@/lib/api";
 import PermissionEditor from "./PermissionEditor";
 import ResetPassword from "./ResetPassword";
 import styles from "../../../app.module.css";
 
-export default async function UserDetailPage({ params }: { params: { id: string } }) {
-  const [u] = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      isAdmin: users.isAdmin,
-      isActive: users.isActive,
-      mustChangePassword: users.mustChangePassword,
-      tenantId: users.tenantId,
-      tenantName: tenants.name,
-    })
-    .from(users)
-    .leftJoin(tenants, eq(users.tenantId, tenants.id))
-    .where(eq(users.id, params.id))
-    .limit(1);
+type UserDetail = {
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+    isAdmin: boolean;
+    isActive: boolean;
+    mustChangePassword: boolean;
+    tenantId: string | null;
+    tenantName: string | null;
+  };
+  permissions: string[];
+};
 
-  if (!u) notFound();
+export default async function UserDetailPage({ params }: { params: { id: string } }) {
+  const data = await apiGetOrNull<UserDetail>(`/api/users/${params.id}`);
+  if (!data) notFound();
+  const u = data.user;
 
   const isPlatformAdmin = u.isAdmin && !u.tenantId;
-  const granted = isPlatformAdmin ? [] : await getUserPermissionKeys(u.id);
+  const granted = isPlatformAdmin ? [] : data.permissions;
 
   return (
     <>

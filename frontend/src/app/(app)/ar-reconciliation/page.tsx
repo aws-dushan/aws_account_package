@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { reconciliationRuns, tenants } from "@/db/schema";
 import { currentUser } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { getMe } from "@/lib/permissions";
+import { apiGet } from "@/lib/api";
 import styles from "../app.module.css";
 
 const STATUS_CLASS: Record<string, string> = {
@@ -15,27 +13,30 @@ const STATUS_CLASS: Record<string, string> = {
   draft: styles.badgeOff,
 };
 
+type RunRow = {
+  id: string;
+  name: string;
+  status: string;
+  autoMatchPct: number | null;
+  createdAt: string;
+  tenantId: string;
+};
+type Company = { id: string; name: string };
+
 export default async function ArHome() {
   const user = await currentUser();
   if (!user) redirect("/login");
-  if (!(await can(user, "ar-reconciliation.view"))) redirect("/dashboard");
-  const canCreate = await can(user, "ar-reconciliation.run.create");
+  const me = await getMe();
+  const granted = me?.permissions ?? [];
+  if (!user.isSuperAdmin && !granted.includes("ar-reconciliation.view")) redirect("/dashboard");
+  const canCreate = user.isSuperAdmin || granted.includes("ar-reconciliation.run.create");
 
-  const base = db
-    .select({
-      id: reconciliationRuns.id,
-      name: reconciliationRuns.name,
-      status: reconciliationRuns.status,
-      autoMatchPct: reconciliationRuns.autoMatchPct,
-      createdAt: reconciliationRuns.createdAt,
-      company: tenants.name,
-    })
-    .from(reconciliationRuns)
-    .leftJoin(tenants, eq(reconciliationRuns.tenantId, tenants.id));
-
-  const rows = await (user.isSuperAdmin ? base : base.where(eq(reconciliationRuns.tenantId, user.tenantId!)))
-    .orderBy(desc(reconciliationRuns.createdAt))
-    .limit(100);
+  const rows = await apiGet<RunRow[]>("/api/runs");
+  const companyMap = new Map<string, string>();
+  if (user.isSuperAdmin) {
+    const companies = await apiGet<Company[]>("/api/companies").catch(() => [] as Company[]);
+    companies.forEach((c) => companyMap.set(c.id, c.name));
+  }
 
   return (
     <>
@@ -78,7 +79,7 @@ export default async function ArHome() {
                         {r.name}
                       </Link>
                     </td>
-                    {user.isSuperAdmin && <td style={{ color: "var(--ink-2)" }}>{r.company ?? "—"}</td>}
+                    {user.isSuperAdmin && <td style={{ color: "var(--ink-2)" }}>{companyMap.get(r.tenantId) ?? "—"}</td>}
                     <td>
                       <span className={`${styles.badge} ${STATUS_CLASS[r.status] ?? styles.badgeOff}`}>{r.status}</span>
                     </td>
@@ -86,7 +87,7 @@ export default async function ArHome() {
                       {r.autoMatchPct != null ? `${Number(r.autoMatchPct).toFixed(1)}%` : "—"}
                     </td>
                     <td className={styles.mono} style={{ color: "var(--ink-2)", whiteSpace: "nowrap" }}>
-                      {r.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+                      {r.createdAt.slice(0, 16).replace("T", " ")}
                     </td>
                   </tr>
                 ))}

@@ -9,9 +9,9 @@ System name TBD. See [docs/DEVELOPMENT-PLAN.md](./docs/DEVELOPMENT-PLAN.md).
 > **AR Reconciliation core** (upload → learned column mapping → deterministic engine →
 > persisted results → colour-coded **Excel + PDF** export, on a background worker), the
 > **AI layer** (match-rescue + commentary on rule-failures only), and **PDF ingestion**
-> (native → vision, learning formats like Excel). Next: P5 polish + wiring the Next.js
-> frontend to the API, then P6 (VPS handover). The React UI (login, shell, admin, results,
-> exports, animations) is built and is being rewired to the .NET API.
+> (native → vision, learning formats like Excel). The **Next.js frontend is now wired to the
+> API** — httpOnly-cookie JWT auth, every page/action/route calls the API, no DB in the
+> frontend. Next: P5 polish, then P6 (VPS handover).
 
 ## Architecture
 

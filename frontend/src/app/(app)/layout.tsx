@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { signOut } from "@/auth";
 import { currentUser } from "@/lib/session";
-import { getUserPermissionKeys } from "@/lib/permissions";
+import { getMe } from "@/lib/permissions";
 import { MODULES } from "@/modules/registry";
 import NavLinks, { type NavSection } from "./NavLinks";
 import ThemeToggle from "./ThemeToggle";
@@ -12,7 +11,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
   if (user.mustChangePassword) redirect("/change-password");
 
-  const granted = user.isSuperAdmin ? [] : await getUserPermissionKeys(user.id);
+  const me = await getMe();
+  const granted = me?.permissions ?? [];
+  const tenantSlug = me?.tenantSlug ?? null;
   const moduleItems = MODULES.filter(
     (m) => user.isSuperAdmin || granted.includes(`${m.key}.view`),
   ).map((m) => ({ href: m.href, label: m.name }));
@@ -53,16 +54,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
             <div className={styles.userMeta}>
               <b>{user.name || user.username}</b>
-              <small>{user.isSuperAdmin ? "Super-admin · ERP team" : user.tenantSlug || "—"}</small>
+              <small>{user.isSuperAdmin ? "Super-admin · ERP team" : tenantSlug || "—"}</small>
             </div>
           </div>
           <ThemeToggle />
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
+          <form action="/api/session/logout" method="post">
             <button type="submit" className={styles.signout} title="Sign out">
               Sign out
             </button>

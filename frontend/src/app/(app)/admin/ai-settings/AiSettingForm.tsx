@@ -47,6 +47,25 @@ export default function AiSettingForm({
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const meta = AI_PROVIDERS.find((p) => p.value === provider);
+  const models = meta?.models ?? [];
+  // "Custom" model entry when the provider has no preset list (Azure) or the saved model isn't a known one.
+  const [customModel, setCustomModel] = useState(() =>
+    config?.model ? !(AI_PROVIDERS.find((p) => p.value === (config?.provider ?? "anthropic"))?.models ?? []).includes(config.model) : false,
+  );
+
+  function onProviderChange(value: string) {
+    setProvider(value);
+    const next = AI_PROVIDERS.find((p) => p.value === value);
+    const nextModels = next?.models ?? [];
+    if (nextModels.length === 0) {
+      setCustomModel(true);
+      setModel("");
+    } else {
+      setCustomModel(false);
+      setModel(nextModels[0]);
+    }
+    setTestResult(null);
+  }
 
   async function runTest() {
     setTesting(true);
@@ -79,7 +98,7 @@ export default function AiSettingForm({
                 name="provider"
                 className={styles.select}
                 value={provider}
-                onChange={(e) => setProvider(e.target.value)}
+                onChange={(e) => onProviderChange(e.target.value)}
               >
                 {AI_PROVIDERS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -88,14 +107,50 @@ export default function AiSettingForm({
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Model</label>
-              <input
-                name="model"
-                className={styles.input}
-                placeholder={meta?.modelPlaceholder}
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                required
-              />
+              {models.length > 0 && !customModel ? (
+                <select
+                  className={styles.select}
+                  value={model}
+                  onChange={(e) => {
+                    if (e.target.value === "__custom__") {
+                      setCustomModel(true);
+                      setModel("");
+                    } else {
+                      setModel(e.target.value);
+                    }
+                  }}
+                >
+                  {models.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="__custom__">Other (custom)…</option>
+                </select>
+              ) : (
+                <>
+                  <input
+                    className={styles.input}
+                    placeholder={meta?.modelPlaceholder}
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    required
+                  />
+                  {models.length > 0 && (
+                    <button
+                      type="button"
+                      className={styles.help}
+                      style={{ background: "none", border: "none", padding: "4px 0 0", cursor: "pointer", textAlign: "left" }}
+                      onClick={() => {
+                        setCustomModel(false);
+                        setModel(models[0]);
+                      }}
+                    >
+                      ← Choose from the list
+                    </button>
+                  )}
+                </>
+              )}
+              {/* Submit the resolved model regardless of which control is shown. */}
+              <input type="hidden" name="model" value={model} />
             </div>
           </div>
 

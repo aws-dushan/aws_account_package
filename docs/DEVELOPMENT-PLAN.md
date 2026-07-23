@@ -50,7 +50,7 @@ Legend: ✅ done · ◑ partial · ⏳ pending · *hook* = pluggable interface w
 ## Sequencing
 ```
 .NET backend:  P0 ✅ ─▶ P1 ✅ ─▶ P2 ✅ ═▶ (client-showable) ─▶ P3 ✅ ─▶ P4 ✅ ─▶ P5 ◑ ─▶ P6 (live)
-Frontend:      Next.js UI built through P5 — now rewiring from the old TS backend to the .NET API.
+Frontend:      Next.js UI ✅ wired to the .NET API (cookie-JWT auth) — remaining: P5 polish + P6.
 ```
 Effort (1–2 engineers): P0 small · P1 medium · **P2 largest** · P3 medium · P4 small–med · P5 medium · P6 medium.
 
@@ -79,6 +79,14 @@ Effort (1–2 engineers): P0 small · P1 medium · **P2 largest** · P3 medium �
   (`AiClient.ExtractPdfTableAsync`) → native-partial; the grid learns formats via the same
   `MappingResolver`, so **PDFs behave exactly like Excel**.
 
-**Next:** P5 remaining polish + **wire the Next.js frontend to the .NET API**, then P6
-(hardening & VPS handover). The React UI (login, shell, admin, results, exports, animations)
-is already built. See [multi-tenancy.md](./multi-tenancy.md).
+**Frontend wired to the API (2026-07-23):** the Next.js app is now a pure client of the .NET
+API. NextAuth/Drizzle removed; auth is an **httpOnly-cookie JWT** (login/logout via route
+handlers, middleware decodes the token for route protection, self-service change-password).
+A server-side API client (`lib/api.ts`) attaches the bearer token; every page/action/route
+(dashboard, AR list/new/detail, exception workflow, admin companies/users/permissions/
+AI-settings/audit) calls the API; run progress is an SSE route that polls the API; exports are
+proxied. **AI Settings now picks the model from a per-provider dropdown** (with a custom-entry
+fallback). Verified end-to-end (login → dashboard → runs → admin) against the running API.
+
+**Next:** P5 remaining polish, then P6 (hardening & VPS handover — prod compose for API +
+frontend, TLS, backups, E2E). See [multi-tenancy.md](./multi-tenancy.md).

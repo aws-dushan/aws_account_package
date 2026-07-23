@@ -1,8 +1,4 @@
-import { redirect } from "next/navigation";
-import { desc } from "drizzle-orm";
-import { db } from "@/db";
-import { auditLog } from "@/db/schema";
-import { currentUser } from "@/lib/session";
+import { apiGet } from "@/lib/api";
 import styles from "../../app.module.css";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -14,16 +10,25 @@ const ACTION_LABELS: Record<string, string> = {
   "user.enable": "Enabled user",
   "user.disable": "Disabled user",
   "user.reset_password": "Reset password",
+  "user.change_password": "Changed password",
   "user.permissions.set": "Set permissions",
   "ai.settings.save": "Saved AI settings",
+  "run.create": "Created run",
+  "run.export": "Exported report",
+};
+
+type AuditRow = {
+  id: string;
+  actorUsername: string | null;
+  action: string;
+  entity: string | null;
+  entityId: string | null;
+  metadata: string | null;
+  createdAt: string;
 };
 
 export default async function AuditPage() {
-  const user = await currentUser();
-  if (!user) redirect("/login");
-  if (!user.isSuperAdmin) redirect("/dashboard");
-
-  const rows = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(200);
+  const rows = await apiGet<AuditRow[]>("/api/audit");
 
   return (
     <>
@@ -54,7 +59,7 @@ export default async function AuditPage() {
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className={styles.mono} style={{ color: "var(--ink-2)", whiteSpace: "nowrap" }}>
-                      {r.createdAt.toISOString().slice(0, 19).replace("T", " ")}
+                      {r.createdAt.slice(0, 19).replace("T", " ")}
                     </td>
                     <td>{r.actorUsername ?? "—"}</td>
                     <td>
@@ -64,7 +69,7 @@ export default async function AuditPage() {
                     </td>
                     <td className={styles.mono} style={{ fontSize: 12, color: "var(--muted)", maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {r.entity ? `${r.entity}${r.entityId ? ` · ${r.entityId}` : ""}` : ""}
-                      {r.metadata ? ` ${JSON.stringify(r.metadata)}` : ""}
+                      {r.metadata ? ` ${r.metadata}` : ""}
                     </td>
                   </tr>
                 ))}

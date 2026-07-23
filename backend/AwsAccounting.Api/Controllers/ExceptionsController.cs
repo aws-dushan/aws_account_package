@@ -31,7 +31,7 @@ public class ExceptionsController(AppDbContext db, CurrentUser me, PermissionSer
             select new
             {
                 e.Id, e.CategoryCode, e.Severity, e.Amount, e.Status,
-                e.AiExplanation, e.AiRecommendation, e.ResolutionNote,
+                e.AiExplanation, e.AiRecommendation, e.AiModel, e.ResolutionNote,
                 reference = l != null ? l.Reference : null,
                 description = l != null ? l.Description : null,
                 side = l != null ? l.Side : null,
@@ -50,15 +50,30 @@ public class ExceptionsController(AppDbContext db, CurrentUser me, PermissionSer
     // ---- approve --------------------------------------------------------------
     [HttpPost("exceptions/{id:guid}/approve")]
     public Task<IActionResult> Approve(Guid id, [FromBody] ResolveReq? req, CancellationToken ct)
-        => Resolve(id, "approved", "ar-reconciliation.exception.approve", req?.Note, ct);
+        => Resolve(id, "approved", req?.Note, ct);
 
     // ---- adjust ---------------------------------------------------------------
     [HttpPost("exceptions/{id:guid}/adjust")]
     public Task<IActionResult> Adjust(Guid id, [FromBody] ResolveReq? req, CancellationToken ct)
-        => Resolve(id, "adjusted", "ar-reconciliation.exception.adjust", req?.Note, ct);
+        => Resolve(id, "adjusted", req?.Note, ct);
 
-    private async Task<IActionResult> Resolve(Guid id, string status, string permKey, string? note, CancellationToken ct)
+    public record ResolveStatusReq(string Status, string? Note);
+
+    private static readonly string[] ResolvableStatuses = ["open", "approved", "adjusted", "resolved"];
+
+    // ---- generic resolve (approve / adjust / resolve / reopen) -----------------
+    [HttpPost("exceptions/{id:guid}/resolve")]
+    public Task<IActionResult> ResolveStatus(Guid id, [FromBody] ResolveStatusReq req, CancellationToken ct)
     {
+        if (req is null || !ResolvableStatuses.Contains(req.Status))
+            return Task.FromResult<IActionResult>(BadRequest(new { error = "Invalid status." }));
+        return Resolve(id, req.Status, req.Note, ct);
+    }
+
+    private async Task<IActionResult> Resolve(Guid id, string status, string? note, CancellationToken ct)
+    {
+        // Adjusting needs the adjust permission; every other transition needs approve.
+        var permKey = status == "adjusted" ? "ar-reconciliation.exception.adjust" : "ar-reconciliation.exception.approve";
         if (!await perms.CanAsync(permKey, ct)) return Deny(permKey);
 
         var ex = await db.Exceptions.FirstOrDefaultAsync(e => e.Id == id, ct);
@@ -66,11 +81,11 @@ public class ExceptionsController(AppDbContext db, CurrentUser me, PermissionSer
         if (!await RunInScope(ex.RunId, ct)) return NotFound();
 
         ex.Status = status;
-        ex.ResolvedBy = me.Id;
-        ex.ResolutionNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        ex.ResolvedBy = status == "open" ? null : me.Id;
+        ex.ResolutionNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim()[..Math.Min(note.Trim().Length, 1000)];
         await db.SaveChangesAsync(ct);
 
-        await audit.WriteAsync($"exception.{status}", "reconciliation_exception", id.ToString(), ex.TenantId, new { ex.CategoryCode, note });
+        await audit.WriteAsync($"exception.{status}", "reconciliation_exception", id.ToString(), ex.TenantId, new { ex.CategoryCode });
         return Ok(new { ex.Id, ex.Status });
     }
 

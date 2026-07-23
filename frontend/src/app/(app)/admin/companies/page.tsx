@@ -1,12 +1,12 @@
-import { desc } from "drizzle-orm";
-import { db } from "@/db";
-import { tenants } from "@/db/schema";
+import { apiGet } from "@/lib/api";
 import { setCompanyActive } from "./actions";
 import CompanyForm from "./CompanyForm";
 import styles from "../../app.module.css";
 
+type Company = { id: string; name: string; slug: string; isActive: boolean };
+
 export default async function CompaniesPage() {
-  const rows = await db.select().from(tenants).orderBy(desc(tenants.createdAt));
+  const rows = await apiGet<Company[]>("/api/companies");
 
   return (
     <>

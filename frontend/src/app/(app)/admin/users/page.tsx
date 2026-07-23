@@ -1,32 +1,26 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { tenants, users } from "@/db/schema";
 import { currentUser } from "@/lib/session";
+import { apiGet } from "@/lib/api";
 import { setUserActive } from "./actions";
 import UserForm from "./UserForm";
 import styles from "../../app.module.css";
 
+type UserRow = {
+  id: string;
+  username: string;
+  displayName: string;
+  isAdmin: boolean;
+  isActive: boolean;
+  tenantName: string | null;
+};
+type Company = { id: string; name: string; isActive: boolean };
+
 export default async function UsersPage() {
   const me = await currentUser();
-  const rows = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      isAdmin: users.isAdmin,
-      isActive: users.isActive,
-      tenantName: tenants.name,
-    })
-    .from(users)
-    .leftJoin(tenants, eq(users.tenantId, tenants.id))
-    .orderBy(desc(users.createdAt));
-
-  const companies = await db
-    .select({ id: tenants.id, name: tenants.name })
-    .from(tenants)
-    .where(eq(tenants.isActive, true))
-    .orderBy(tenants.name);
+  const rows = await apiGet<UserRow[]>("/api/users");
+  const companies = (await apiGet<Company[]>("/api/companies"))
+    .filter((c) => c.isActive)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <>

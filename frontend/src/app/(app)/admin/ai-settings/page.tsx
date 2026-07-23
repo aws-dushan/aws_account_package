@@ -1,18 +1,20 @@
-import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { aiSettings } from "@/db/schema";
-import { currentUser } from "@/lib/session";
-import { keyHint } from "@/lib/crypto";
+import { apiGet } from "@/lib/api";
 import { AI_PURPOSES } from "@/modules/ai-providers";
 import AiSettingForm, { type AiConfig } from "./AiSettingForm";
 import styles from "../../app.module.css";
 
-export default async function AiSettingsPage() {
-  const user = await currentUser();
-  if (!user) redirect("/login");
-  if (!user.isSuperAdmin) redirect("/dashboard");
+type ApiSetting = {
+  purpose: string;
+  provider: string;
+  model: string;
+  baseUrl: string | null;
+  temperature: number | null;
+  isActive: boolean;
+  keyHint: string | null;
+};
 
-  const rows = await db.select().from(aiSettings);
+export default async function AiSettingsPage() {
+  const rows = await apiGet<ApiSetting[]>("/api/ai-settings");
   const byPurpose = new Map(rows.map((r) => [r.purpose, r]));
 
   return (
@@ -23,8 +25,8 @@ export default async function AiSettingsPage() {
           <h1>AI Settings</h1>
           <p>
             Configure the AI provider per purpose. Keys are encrypted at rest. The reasoning
-            model powers exception explanations (Phase 3); the vision model reads scanned
-            documents (Phase 4).
+            model powers exception explanations and match-rescue; the vision model reads
+            scanned documents.
           </p>
         </div>
       </div>
@@ -36,9 +38,9 @@ export default async function AiSettingsPage() {
             ? {
                 provider: row.provider,
                 model: row.model,
-                keyHint: keyHint(row.apiKeyEnc),
+                keyHint: row.keyHint,
                 baseUrl: row.baseUrl,
-                temperature: row.temperature,
+                temperature: row.temperature != null ? String(row.temperature) : null,
                 isActive: row.isActive,
               }
             : null;

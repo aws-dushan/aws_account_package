@@ -90,9 +90,18 @@ public class RunsController(
         if (!await perms.CanAsync("ar-reconciliation.view", ct)) return Deny("ar-reconciliation.view");
         var run = await LoadScoped(id, ct);
         if (run is null) return NotFound();
+
+        var company = await db.Tenants.AsNoTracking().Where(t => t.Id == run.TenantId).Select(t => t.Name).FirstOrDefaultAsync(ct);
+        var lines = await db.LedgerLines.CountAsync(l => l.RunId == id, ct);
+        var matchCount = await db.Matches.CountAsync(m => m.RunId == id, ct);
+        var exOpen = await db.Exceptions.CountAsync(e => e.RunId == id && e.Status == "open", ct);
+        var exTotal = await db.Exceptions.CountAsync(e => e.RunId == id, ct);
+
         return Ok(new
         {
             run.Id, run.Name, run.Status, run.Stage, run.AutoMatchPct, run.MatchedValue, run.Error, run.CreatedAt, run.CompletedAt,
+            company,
+            counts = new { lines, matches = matchCount, exceptionsOpen = exOpen, exceptionsTotal = exTotal },
             stages = RunProcessor.Stages,
         });
     }

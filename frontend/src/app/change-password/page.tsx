@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { currentUser } from "@/lib/session";
 import ChangePasswordForm from "./ChangePasswordForm";
 
 export default async function ChangePasswordPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  const user = await currentUser();
+  if (!user) redirect("/login");
   return <ChangePasswordForm />;
 }

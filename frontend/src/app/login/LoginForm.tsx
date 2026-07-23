@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "./login.module.css";
 import BrandLogo from "./BrandLogo";
@@ -31,13 +30,24 @@ export default function LoginForm() {
     setError("");
     setStatus("loading");
 
-    const res = await signIn("credentials", {
-      username: username.trim(),
-      password,
-      redirect: false,
-    });
+    let ok = false;
+    let mustChange = false;
+    try {
+      const res = await fetch("/api/session/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      ok = res.ok;
+      if (ok) {
+        const data = (await res.json()) as { mustChangePassword?: boolean };
+        mustChange = !!data.mustChangePassword;
+      }
+    } catch {
+      ok = false;
+    }
 
-    if (!res || res.error) {
+    if (!ok) {
       setError("Incorrect username or password.");
       setStatus("idle");
       return;
@@ -45,7 +55,7 @@ export default function LoginForm() {
 
     setStatus("success");
     await new Promise((r) => setTimeout(r, 450));
-    router.push("/dashboard");
+    router.push(mustChange ? "/change-password" : "/dashboard");
     router.refresh();
   }
 

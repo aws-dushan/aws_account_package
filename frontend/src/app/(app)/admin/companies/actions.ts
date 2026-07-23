@@ -1,42 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { tenants } from "@/db/schema";
-import { currentUser } from "@/lib/session";
-import { writeAudit } from "@/lib/audit";
+import { apiPost, ApiError } from "@/lib/api";
 
 export type FormState = { error?: string; ok?: string };
 
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
 export async function createCompany(_prev: FormState, fd: FormData): Promise<FormState> {
-  const user = await currentUser();
-  if (!user?.isSuperAdmin) return { error: "Only a super-admin can create companies." };
-
   const name = String(fd.get("name") ?? "").trim();
   if (name.length < 2) return { error: "Enter a company name (at least 2 characters)." };
 
-  const slug = slugify(name);
-  if (!slug) return { error: "Company name must contain letters or numbers." };
-
-  const [exists] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1);
-  if (exists) return { error: `A company with the slug "${slug}" already exists.` };
-
-  const [created] = await db.insert(tenants).values({ name, slug }).returning({ id: tenants.id });
-  await writeAudit({ action: "company.create", entity: "tenant", entityId: created.id, metadata: { name, slug } });
+  try {
+    await apiPost("/api/companies", { name });
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "Could not create the company." };
+  }
   revalidatePath("/admin/companies");
   revalidatePath("/admin/users");
   return { ok: `Created company "${name}".` };
 }
 
 export async function setCompanyActive(id: string, isActive: boolean): Promise<void> {
-  const user = await currentUser();
-  if (!user?.isSuperAdmin) return;
-  await db.update(tenants).set({ isActive }).where(eq(tenants.id, id));
-  await writeAudit({ action: isActive ? "company.enable" : "company.disable", entity: "tenant", entityId: id });
+  try {
+    await apiPost(`/api/companies/${id}/active`, { isActive });
+  } catch {
+    /* surfaced on refresh */
+  }
   revalidatePath("/admin/companies");
 }

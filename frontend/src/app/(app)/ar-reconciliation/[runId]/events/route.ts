@@ -1,39 +1,31 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { reconciliationRuns } from "@/db/schema";
-import { currentUser } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { apiFetch } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-// Server-Sent Events: streams the run's status + stage until it finishes.
+// Server-Sent Events: polls the API for the run's status + stage until it finishes.
 export async function GET(_req: Request, { params }: { params: { runId: string } }) {
-  const user = await currentUser();
-  if (!user) return new Response("Unauthorized", { status: 401 });
-  if (!(await can(user, "ar-reconciliation.view"))) return new Response("Forbidden", { status: 403 });
-
-  const [run] = await db
-    .select({ tenantId: reconciliationRuns.tenantId })
-    .from(reconciliationRuns)
-    .where(eq(reconciliationRuns.id, params.runId))
-    .limit(1);
-  if (!run) return new Response("Not found", { status: 404 });
-  if (!user.isSuperAdmin && run.tenantId !== user.tenantId) return new Response("Not found", { status: 404 });
+  const first = await apiFetch(`/api/runs/${params.runId}`);
+  if (first.status === 401) return new Response("Unauthorized", { status: 401 });
+  if (first.status === 403) return new Response("Forbidden", { status: 403 });
+  if (!first.ok) return new Response("Not found", { status: 404 });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(o)}\n\n`));
+      const initial = (await first.json()) as { status?: string; stage?: string | null };
+      send({ status: initial.status, stage: initial.stage });
+      if (initial.status === "completed" || initial.status === "failed") {
+        controller.close();
+        return;
+      }
       for (let i = 0; i < 600; i++) {
-        const [r] = await db
-          .select({ status: reconciliationRuns.status, stage: reconciliationRuns.stage })
-          .from(reconciliationRuns)
-          .where(eq(reconciliationRuns.id, params.runId))
-          .limit(1);
-        if (!r) break;
+        await new Promise((res) => setTimeout(res, 1000));
+        const res = await apiFetch(`/api/runs/${params.runId}`);
+        if (!res.ok) break;
+        const r = (await res.json()) as { status?: string; stage?: string | null };
         send({ status: r.status, stage: r.stage });
         if (r.status === "completed" || r.status === "failed") break;
-        await new Promise((res) => setTimeout(res, 1000));
       }
       controller.close();
     },

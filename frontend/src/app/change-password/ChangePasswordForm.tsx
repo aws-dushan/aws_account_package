@@ -82,6 +82,7 @@ export default function ChangePasswordForm() {
             {state.error}
           </div>
         )}
+        <input style={input} type="password" name="current" placeholder="Current password" autoComplete="current-password" required />
         <input style={input} type="password" name="password" placeholder="New password" autoComplete="new-password" required minLength={8} />
         <input style={input} type="password" name="confirm" placeholder="Confirm new password" autoComplete="new-password" required minLength={8} />
         <SubmitButton />

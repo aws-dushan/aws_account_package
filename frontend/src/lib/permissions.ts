@@ -1,21 +1,25 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { userPermissions } from "@/db/schema";
+import { apiGetOrNull } from "@/lib/api";
 import type { SessionUser } from "@/lib/session";
 
-/** All permission keys granted to a user (empty for a fresh non-admin user). */
-export async function getUserPermissionKeys(userId: string): Promise<string[]> {
-  const rows = await db
-    .select({ key: userPermissions.permissionKey })
-    .from(userPermissions)
-    .where(eq(userPermissions.userId, userId));
-  return rows.map((r) => r.key);
+type Me = {
+  tenantSlug: string | null;
+  permissions: string[];
+};
+
+/** The current user's granted permission keys, from the API. */
+export async function getUserPermissionKeys(_userId?: string): Promise<string[]> {
+  const me = await apiGetOrNull<Me>("/api/auth/me");
+  return me?.permissions ?? [];
+}
+
+/** The current user's full profile (includes tenantSlug + permission keys). */
+export async function getMe(): Promise<Me | null> {
+  return apiGetOrNull<Me>("/api/auth/me");
 }
 
 /**
- * Can this user perform `key`? Super-admins (ERP team) always can. Otherwise the
- * key must be present in their granted set. Pass a preloaded `grantedKeys` to
- * avoid a DB round-trip (e.g. when checking several keys for nav rendering).
+ * Can this user perform `key`? Super-admins (ERP team) always can. Otherwise the key
+ * must be present in their granted set. Pass a preloaded `grantedKeys` to avoid a round-trip.
  */
 export async function can(
   user: Pick<SessionUser, "id" | "isSuperAdmin">,

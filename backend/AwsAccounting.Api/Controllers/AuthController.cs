@@ -1,16 +1,18 @@
-using System.Security.Claims;
 using AwsAccounting.Api.Auth;
+using AwsAccounting.Api.Data;
 using AwsAccounting.Api.Domain;
+using AwsAccounting.Api.Modules;
 using AwsAccounting.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AwsAccounting.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(UserManager<ApplicationUser> users, JwtTokenService jwt, CurrentUser me, AuditService audit) : ControllerBase
+public class AuthController(AppDbContext db, UserManager<ApplicationUser> users, JwtTokenService jwt, CurrentUser me, AuditService audit) : ControllerBase
 {
     public record LoginRequest(string Username, string Password);
 
@@ -70,15 +72,35 @@ public class AuthController(UserManager<ApplicationUser> users, JwtTokenService 
         return Ok(new { ok = true, token = jwt.Create(user) });
     }
 
+    /// <summary>The current user with their tenant slug and granted permission keys (for UI gating).</summary>
     [HttpGet("me")]
     [Authorize]
-    public IActionResult Me() => Ok(new
+    public async Task<IActionResult> Me()
     {
-        id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"),
-        username = User.FindFirstValue("username"),
-        name = User.FindFirstValue("name"),
-        isAdmin = User.FindFirstValue("isAdmin") == "true",
-        isSuperAdmin = User.FindFirstValue("isSuperAdmin") == "true",
-        tenantId = User.FindFirstValue("tenantId"),
-    });
+        if (me.Id is not Guid uid) return Unauthorized();
+        var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == uid);
+        if (u is null || !u.IsActive) return Unauthorized();
+
+        string? slug = u.TenantId is Guid t
+            ? await db.Tenants.AsNoTracking().Where(x => x.Id == t).Select(x => x.Slug).FirstOrDefaultAsync()
+            : null;
+
+        // Admins/super-admins implicitly hold everything; company users get their ticked keys.
+        var permissions = u.IsAdmin
+            ? PermissionCatalog.AllKeys.ToList()
+            : await db.UserPermissions.AsNoTracking().Where(p => p.UserId == uid).Select(p => p.PermissionKey).ToListAsync();
+
+        return Ok(new
+        {
+            id = u.Id,
+            username = u.UserName,
+            name = u.DisplayName,
+            isAdmin = u.IsAdmin,
+            isSuperAdmin = u.IsSuperAdmin,
+            mustChangePassword = u.MustChangePassword,
+            tenantId = u.TenantId,
+            tenantSlug = slug,
+            permissions,
+        });
+    }
 }

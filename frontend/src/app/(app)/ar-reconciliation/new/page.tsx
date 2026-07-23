@@ -1,19 +1,21 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { tenants } from "@/db/schema";
 import { currentUser } from "@/lib/session";
-import { can } from "@/lib/permissions";
+import { getMe } from "@/lib/permissions";
+import { apiGet } from "@/lib/api";
 import NewRunForm from "./NewRunForm";
 import styles from "../../app.module.css";
+
+type Company = { id: string; name: string; isActive: boolean };
 
 export default async function NewRunPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
-  if (!(await can(user, "ar-reconciliation.run.create"))) redirect("/ar-reconciliation");
+  const me = await getMe();
+  const granted = me?.permissions ?? [];
+  if (!user.isSuperAdmin && !granted.includes("ar-reconciliation.run.create")) redirect("/ar-reconciliation");
 
   const companies = user.isSuperAdmin
-    ? await db.select({ id: tenants.id, name: tenants.name }).from(tenants).where(eq(tenants.isActive, true)).orderBy(tenants.name)
+    ? (await apiGet<Company[]>("/api/companies")).filter((c) => c.isActive).map((c) => ({ id: c.id, name: c.name }))
     : [];
 
   return (
