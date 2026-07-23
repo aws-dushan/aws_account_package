@@ -1,5 +1,13 @@
 # Phase 4 — Ingestion: PDF + OCR
 
+> **Status: ⏳ .NET port pending.** Complete in the **TypeScript reference** (`src/lib/pdf.ts`,
+> `extractGrid`). On the .NET backend, `GridExtractor` handles Excel/CSV today and delegates
+> PDFs to a pluggable **`IPdfGridExtractor`** hook; the `NullPdfGridExtractor` currently
+> declines with a clear "arrives in Phase 4" message. P4 = port the tiers with C# libraries
+> (**UglyToad.PdfPig** native text; the configured vision model for scans). The extracted grid
+> **already flows through the same `MappingResolver`**, so PDFs will learn formats exactly like
+> Excel. The `[x]` items below track the TS reference, not the .NET port.
+
 **Goal:** Accept PDFs and scanned documents through a tiered extraction pipeline.
 
 **Depends on:** Phase 2 (canonical schema) + Phase 1 (AI vision config).

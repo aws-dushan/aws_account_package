@@ -1,5 +1,11 @@
 # Phase 5 — Reporting & Polish
 
+> **Status: ◑ partial.** **PDF export is done on the .NET API** (QuestPDF, in `ReportExporter`,
+> replacing pdfkit) alongside the Excel export. The UI polish items (page transitions,
+> loading skeletons, dark theme, reduced-motion, virtualization) are **built in the Next.js
+> frontend** and carry over as it is rewired to the .NET API. The `[x]` items below track the
+> TS/React reference; remaining .NET-side polish is folded into the wiring work.
+
 **Goal:** Production-quality outputs and a refined, accessible UX.
 
 **Depends on:** Phase 2 (data) + Phase 3 (AI content).

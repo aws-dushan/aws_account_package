@@ -1,5 +1,12 @@
 # Phase 3 — AI Layer (fallback matching + commentary)
 
+> **Status: ⏳ .NET port pending.** The behaviour below is complete in the **TypeScript
+> reference** (`src/modules/ar-reconciliation/ai-enrich.ts`) and the React UI. On the .NET
+> backend it is a pluggable **`IAiEnricher`** hook with a `NullAiEnricher` no-op, called as
+> best-effort Stage 5 / Stage 6 in `RunProcessor` (a run never fails if AI is unconfigured).
+> P3 = port `rescueMatches` + `generateExceptionInsights` into a live enricher that reads the
+> encrypted AI settings. The `[x]` items below track the TS reference, not the .NET port.
+
 **Goal:** Wire the configurable AI into the pipeline so it touches **only rule-failures**.
 
 **Depends on:** Phase 1 (AI settings) + Phase 2 (rule engine).

@@ -1,5 +1,13 @@
 # Phase 1 — Platform Services (the reusable spine)
 
+> **Status: ✅ done (.NET API).** Delivered as controllers on the ASP.NET Core backend:
+> `CompaniesController` (create/disable, `SuperAdmin` policy), `UsersController`
+> (create picking the company, disable, reset-password, `GET/PUT` per-user permissions),
+> `AiSettingsController` (AES-256-GCM key encryption + live Test-connection for
+> Claude/OpenAI/Google/Azure), `AuditController`, and `MetaController` (permission catalog).
+> Enforcement is `PermissionService.CanAsync` (server-side) + tenant scoping on every query.
+> The Tailwind/shadcn note is superseded — the UI uses hand-authored CSS modules.
+
 **Goal:** Admin creates users, ticks per-user permissions, and configures the AI provider;
 the module registry drives the navigation.
 

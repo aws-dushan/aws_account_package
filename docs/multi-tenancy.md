@@ -27,15 +27,20 @@ Every tenant-owned table added later (reconciliation runs, ledger lines, files, 
 audit) carries a `tenant_id` FK and is always filtered by the caller's tenant.
 
 ## Auth & session
-Auth.js (Credentials) puts tenant context in the JWT/session:
+**ASP.NET Core Identity + JWT.** `POST /api/auth/login` verifies the username/password
+(Identity's hasher) and returns a signed JWT whose claims carry the tenant context:
 ```
-session.user = {
-  id, username, name, isAdmin, mustChangePassword,
-  tenantId,        // null for super-admins
-  tenantSlug,      // null for super-admins
-  isSuperAdmin,    // isAdmin && !tenantId
+claims = {
+  sub / nameidentifier,   // user id
+  username, name,
+  isAdmin,                // "true" | "false"
+  isSuperAdmin,           // isAdmin && tenantId == null
+  mustChangePassword,
+  tenantId,               // absent/null for super-admins
 }
 ```
+The frontend sends the token as `Authorization: Bearer …`; the API reads it via
+`CurrentUser` and enforces the authorization policies `Admin` / `SuperAdmin`.
 
 ## Tenant isolation rules (enforced server-side)
 1. Every query for tenant-owned data filters by the session's `tenantId`.
@@ -46,22 +51,23 @@ session.user = {
 4. Uniqueness that must be per-company (e.g. reconciliation run names) is keyed on
    `(tenant_id, …)`.
 
-## Current status (Phase 0)
-- `tenants` + tenant-scoped `users` schema in place.
-- `Dev_Admin` seeded as a platform super-admin (`tenant_id = NULL`).
-- One seed company: **AWS Distribution** (`aws-distribution`).
-- Session carries `tenantId` / `isSuperAdmin`.
+## Current status (.NET backend, P0–P2 done)
+- EF Core entities: `Tenant` + `ApplicationUser` (Identity, `TenantId?`), `UserPermission`,
+  `AiSetting`, `AuditEntry`, and the reconciliation set (`FileRecord`, `ReconciliationRun`,
+  `LedgerLine`, `MatchEntity`, `MatchLine`, `ExceptionRow`, `LedgerMapping`).
+- `Dev_Admin` seeded as a platform super-admin (`TenantId = null`); seed company
+  **AWS Distribution** (`aws-distribution`).
+- **ERP-team admin console API delivered (P1):** companies (create/disable), users
+  (create picking the company, disable, reset-password, `mustChangePassword`), per-user
+  permission ticking, encrypted AI settings + Test-connection, audit log.
+- **Tenant isolation enforced (P2):** every reconciliation query filters by the caller's
+  tenant; a company user is pinned to their own `TenantId`; a super-admin passes the target
+  company explicitly (e.g. `tenantId` on run creation). Run names are unique per `(tenant, …)`.
 
-## Planned (Phase 1+) — the ERP-team admin console
-- **Company management**: create/disable companies.
-- **User creation**: admin picks the **company**, sets username + temp password,
-  `must_change_password = true`.
-- **Permission assignment**: per-user, per-module/feature ticking, scoped within the
-  user's company.
-- These three (companies · users · permissions) are the ERP-team admin's core screens.
+## Still open
 - **Tenant resolution at login** — decide between:
   - a **company selector / code** on the login screen, or
   - **subdomain-based** tenancy (`acme.app.example.com`), with `(tenant_id, username)`
     uniqueness instead of global-unique usernames.
   Until then, usernames are globally unique.
-- Full **tenant-scoped audit log**.
+- Optional delegated **company admin** role (currently administration is centralized to the ERP team).

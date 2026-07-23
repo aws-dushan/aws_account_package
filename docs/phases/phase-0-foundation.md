@@ -1,7 +1,14 @@
 # Phase 0 — Foundation & Walking Skeleton
 
-**Goal:** `docker compose up` on the laptop → log in → a themed, empty authenticated shell,
-running against native Postgres. Migrations reproducible from scratch.
+> **Status: ✅ done.** After the [.NET pivot](../DEVELOPMENT-PLAN.md), the foundation is an
+> **ASP.NET Core Web API** (EF Core + Identity/JWT) plus the Next.js UI. The scope below
+> describes the original TypeScript walking skeleton; the delivered .NET equivalent is:
+> `AppDbContext` + first EF migration, startup migrate + seed (`Dev_Admin`, company *AWS
+> Distribution*), `POST /api/auth/login` → JWT, and the animated Next.js login. Auth is
+> **Identity's password hasher + JWT** (not Auth.js/argon2). Redis is dropped.
+
+**Goal:** log in → a themed, empty authenticated shell, running against native Postgres.
+Migrations reproducible from scratch.
 
 **Depends on:** nothing (start here).
 
