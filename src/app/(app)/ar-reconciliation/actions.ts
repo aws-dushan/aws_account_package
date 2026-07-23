@@ -1,10 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { reconciliationRuns, files, tenants, exceptions } from "@/db/schema";
+import { reconciliationRuns, files, tenants, exceptions, ledgerLines, matches, matchLines } from "@/db/schema";
 import { currentUser } from "@/lib/session";
 import { can } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
@@ -112,6 +112,39 @@ export async function generateInsights(runId: string): Promise<{ ok?: boolean; e
     if (e instanceof AiNotConfiguredError) return { error: "Configure a reasoning model in Admin → AI Settings first." };
     return { error: "AI insight generation failed. Check the AI provider configuration." };
   }
+}
+
+export async function confirmSuggestion(input: { exceptionId: string; accept: boolean }): Promise<{ ok?: boolean; error?: string }> {
+  const user = await currentUser();
+  if (!user) return { error: "Not signed in." };
+
+  const [ex] = await db.select({ tenantId: exceptions.tenantId, runId: exceptions.runId, lineId: exceptions.ledgerLineId }).from(exceptions).where(eq(exceptions.id, input.exceptionId)).limit(1);
+  if (!ex) return { error: "Exception not found." };
+  if (!user.isSuperAdmin && ex.tenantId !== user.tenantId) return { error: "Not allowed." };
+  if (!(await can(user, "ar-reconciliation.exception.approve"))) return { error: "You don't have permission to confirm matches." };
+  if (!ex.lineId) return { error: "No linked line." };
+
+  const [line] = await db.select({ matchId: ledgerLines.matchId }).from(ledgerLines).where(eq(ledgerLines.id, ex.lineId)).limit(1);
+  const matchId = line?.matchId;
+  if (!matchId) return { error: "No suggested match to confirm." };
+
+  const links = await db.select({ lineId: matchLines.ledgerLineId }).from(matchLines).where(eq(matchLines.matchId, matchId));
+  const lineIds = links.map((l) => l.lineId);
+  const exRows = await db.select({ id: exceptions.id }).from(exceptions).where(inArray(exceptions.ledgerLineId, lineIds));
+  const exIds = exRows.map((r) => r.id);
+
+  if (input.accept) {
+    await db.update(matches).set({ status: "user_confirmed" }).where(eq(matches.id, matchId));
+    await db.update(exceptions).set({ status: "resolved", resolvedBy: user.id }).where(inArray(exceptions.id, exIds));
+  } else {
+    await db.update(ledgerLines).set({ matchId: null }).where(inArray(ledgerLines.id, lineIds));
+    await db.delete(matches).where(eq(matches.id, matchId)); // cascades match_lines
+    await db.update(exceptions).set({ status: "open", aiExplanation: null, aiRecommendation: null }).where(inArray(exceptions.id, exIds));
+  }
+
+  await writeAudit({ action: input.accept ? "reconciliation.ai_match.confirm" : "reconciliation.ai_match.reject", entity: "exception", entityId: input.exceptionId, tenantId: ex.tenantId });
+  revalidatePath(`/ar-reconciliation/${ex.runId}`);
+  return { ok: true };
 }
 
 export type ExceptionStatus = "open" | "approved" | "adjusted" | "resolved";

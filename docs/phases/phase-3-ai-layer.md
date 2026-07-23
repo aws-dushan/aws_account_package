@@ -5,13 +5,20 @@
 **Depends on:** Phase 1 (AI settings) + Phase 2 (rule engine).
 
 ## Scope
-- [ ] **Stage 5 AI match-rescue:** send only rule-failures + candidate context to the model →
-      structured match proposals + confidence (`generateObject` / Zod) → status **"AI-suggested"**
-- [ ] Confirm flow: human confirms by default; optional high-confidence auto-apply (admin setting)
-- [ ] **Stage 6 AI commentary:** for items still unmatched, generate a plain-English explanation +
-      recommended action — rendered in **violet ✦ AI**
-- [ ] Stamp every AI output with model + provider (audit)
-- [ ] Graceful fallback if the AI provider is unreachable
+- [x] **Stage 5 AI match-rescue:** rule-failures (D/E) → the model proposes pairs the rules
+      missed → confident pairs become an **"ai_suggested"** match linking both lines.
+      (`src/modules/ar-reconciliation/ai-enrich.ts` → `rescueMatches`)
+- [x] Confirm flow: human confirms/rejects in the exception drawer (`confirmSuggestion`).
+      Confidence threshold configurable in code; auto-apply intentionally off (audit safety).
+- [x] **Stage 6 AI commentary:** items still unmatched get a plain-English explanation +
+      recommended action — rendered in the **violet ✦ AI** drawer panel. (`generateExceptionInsights`)
+- [x] AI output stamped with the model (`ai_model`); confirm/reject + insight generation audited.
+- [x] Graceful fallback: all AI steps are best-effort; runs never fail if AI is unreachable or
+      unconfigured (`AiNotConfiguredError`). Provider layer: `src/lib/ai.ts`.
+- [x] On-demand **✦ Generate AI insights** button on the results page.
+
+> Not live-tested end-to-end (no AI key configured in the dev session) — code-complete and
+> typechecked; verified to skip cleanly without a provider.
 
 ## Deliverables
 - AI match suggestions with confirm UX

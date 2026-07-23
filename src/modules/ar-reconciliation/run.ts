@@ -4,7 +4,7 @@ import { ledgerLines, matches, matchLines, exceptions, reconciliationRuns, files
 import { autoDetectMapping, applyMapping, mappingGaps, type ColumnMapping } from "./ledger-mapping";
 import { reconcile } from "./engine/engine";
 import { resolveMapping } from "./mapping-resolver";
-import { generateExceptionInsights } from "./ai-enrich";
+import { generateExceptionInsights, rescueMatches } from "./ai-enrich";
 import { readUpload } from "../../lib/storage";
 import { parseWorkbook } from "../../lib/xlsx";
 
@@ -15,7 +15,7 @@ function toDate(s: string | null): string | null {
 }
 
 /** Reconciliation stages, in order — the UI stepper renders these. */
-export const RUN_STAGES = ["Reading files", "Resolving columns", "Matching", "Saving results", "AI insights", "Completed"] as const;
+export const RUN_STAGES = ["Reading files", "Resolving columns", "Matching", "Saving results", "AI matching", "AI insights", "Completed"] as const;
 
 async function setStage(runId: string, stage: string) {
   await db.update(reconciliationRuns).set({ stage }).where(eq(reconciliationRuns.id, runId));
@@ -150,7 +150,14 @@ export async function processRun(runId: string) {
     customerMapping: c.mapping,
   });
 
-  // Stage 6 — AI commentary (best-effort; skipped when AI isn't configured).
+  // Stage 5 — AI match-rescue (rule-failures only; best-effort).
+  try {
+    await setStage(runId, "AI matching");
+    await rescueMatches(runId);
+  } catch {
+    /* AI optional */
+  }
+  // Stage 6 — AI commentary on the items still unmatched (best-effort).
   try {
     await setStage(runId, "AI insights");
     await generateExceptionInsights(runId);

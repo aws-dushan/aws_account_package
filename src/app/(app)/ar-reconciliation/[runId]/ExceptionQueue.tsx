@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { resolveException, type ExceptionStatus } from "../actions";
+import { resolveException, confirmSuggestion, type ExceptionStatus } from "../actions";
 import { CATEGORY_LABEL } from "@/modules/ar-reconciliation/labels";
 import styles from "../../app.module.css";
 
@@ -24,6 +24,7 @@ export type ExceptionRow = {
 const SEV: Record<string, string> = { g: styles.sevG, a: styles.sevA, c: styles.sevC, r: styles.sevR, n: styles.sevN };
 const STATUS: Record<string, { cls: string; label: string }> = {
   open: { cls: styles.stOpen, label: "Open" },
+  ai_suggested: { cls: styles.badgeAdmin, label: "✦ AI suggested" },
   approved: { cls: styles.stApproved, label: "Approved" },
   adjusted: { cls: styles.stAdjusted, label: "Adjusted" },
   resolved: { cls: styles.stResolved, label: "Resolved" },
@@ -57,6 +58,20 @@ export default function ExceptionQueue({
     setBusy(true);
     setErr("");
     const res = await resolveException({ exceptionId: sel.id, status, note });
+    setBusy(false);
+    if (res.error) {
+      setErr(res.error);
+      return;
+    }
+    setSel(null);
+    router.refresh();
+  }
+
+  async function confirmSug(accept: boolean) {
+    if (!sel) return;
+    setBusy(true);
+    setErr("");
+    const res = await confirmSuggestion({ exceptionId: sel.id, accept });
     setBusy(false);
     if (res.error) {
       setErr(res.error);
@@ -149,7 +164,16 @@ export default function ExceptionQueue({
 
               {err && <div className={`${styles.alert} ${styles.alertErr}`}>{err}</div>}
 
-              {canApprove || canAdjust ? (
+              {sel.status === "ai_suggested" ? (
+                canApprove ? (
+                  <div className={styles.drawerActions}>
+                    <button className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy} onClick={() => confirmSug(true)}>Confirm match</button>
+                    <button className={`${styles.btn} ${styles.btnGhost}`} disabled={busy} onClick={() => confirmSug(false)}>Reject</button>
+                  </div>
+                ) : (
+                  <div className={styles.help}>An approver must confirm this AI-suggested match.</div>
+                )
+              ) : canApprove || canAdjust ? (
                 <div className={styles.drawerActions}>
                   {canApprove && <button className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy} onClick={() => act("approved")}>Approve</button>}
                   {canAdjust && <button className={`${styles.btn}`} disabled={busy} onClick={() => act("adjusted")}>Mark adjusted</button>}
