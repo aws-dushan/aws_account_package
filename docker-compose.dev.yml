@@ -1,0 +1,23 @@
+# Dev stack — run on the laptop. Postgres runs NATIVELY on the host (not here);
+# containers reach it via host.docker.internal. Worker + tesseract are added in Phase 2.
+services:
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/aws_account_platform
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
